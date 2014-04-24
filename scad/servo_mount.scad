@@ -1,7 +1,7 @@
 
 thikness = 2;
 
-servo_width = 50;
+servo_width = 42;
 servo_height = 20;
 servo_length = 30;
 servo_hole_d = 4;
