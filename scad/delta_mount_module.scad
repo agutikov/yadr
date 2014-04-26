@@ -1,67 +1,41 @@
 
-// ширина промежутка между выступающими креплениями
-width=45;
+include <lib.scad>;
 
-// диаметр отверстия для крепления ball-joint-ов
-d_bolt = 3;
-r_bolt = d_bolt/2;
+// ширина промежутка между наружными краями конусов
+delta_width=45;
 
-// ширина выступающих креплений
-A = 5;
-// ширина конуса
-A_C = 5;
-// толщина крепления,
-H_z = 6;
-// диаметр конуса
-D_C = 10;
-R_C = D_C/2;
-// длина выступающих крепления, учитывать что они частично утоплены в гайку
-L2 = 10;
+// диаметр отверстия
+bolt_d = 3;
+bolt_r = bolt_d/2;
 
-inside = false;
+// цилиндр
+cyl_w = 5;
+cyl_d = 10;
+cyl_r = cyl_d/2;
+
+// конус
+con_w = 5;
+con_r = bolt_r+1;
+con_d = con_r*2;
 
 
-
-
-
-// выступающее крепление ball-joint-а
-// left - с какой стороны находится сужающийся цилиндр
-// до смещения располагается в центре (учитывать при рассчёте смещения)
-module mount(left=true) {
-	translate([0, -L2/2, 0]) rotate(a=90, v=[0,0,1]) {
-
-	  difference() {
-		union() {
-			cube(size=[L2, A, H_z], center=true);
-
-			translate([0,0,R_C-H_z/2]) {
-				translate([L2/2, 0, 0]) rotate(a=90, v=[1,0,0])
-				cylinder(r=R_C, h=A, center=true);
-
-				if (left) {
-					translate([L2/2, A/2+A_C, 0]) rotate(a=90, v=[1,0,0])
-					cylinder(r2=R_C, r1=r_bolt+1, h=A_C);
-				} else {
-					translate([L2/2, -A/2-A_C, 0]) rotate(a=90, v=[1,0,0])
-					cylinder(r1=R_C, r2=r_bolt+1, h=A_C);
-				}
-			}
+module mount()
+{
+	w=cyl_w+con_w+2;
+	difference() {
+		rotate(a=90, v=[1,0,0]) union() {
+				translate([0,0,-cyl_w/2]) cylinder(center=true, r=cyl_r, h=cyl_w);
+				translate([0,0,con_w/2]) cylinder(center=true, r1=cyl_r, r2=con_r, h=con_w);
 		}
-		translate([L2/2, 0, R_C-H_z/2]) rotate(a=90, v=[1,0,0])
-		cylinder(r=r_bolt, h=A*3, center=true);
-	}
-
+		translate([0,-(con_w-cyl_w)/2-1,0]) true_hole(d=bolt_d, L=w);
 	}
 };
 
 
-
 module delta_mount() {
-	w = -width/2 + A/2 + A_C;
-	translate([w, 0, 0]) mount(!inside);
-	mirror([1,0,0]) translate([w, 0, 0]) mount(!inside);
+	w=delta_width/2-con_w;
+	translate([w, 0, 0]) rotate(a=90, v=[0,0,1]) mount();
+	mirror([1,0,0]) translate([w, 0, 0]) rotate(a=90, v=[0,0,1]) mount();
 }
-
-
 
 

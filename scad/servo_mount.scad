@@ -1,9 +1,11 @@
 
+include <lib.scad>;
+
 thikness = 2;
 
 servo_width = 42;
 servo_height = 20;
-servo_length = 30;
+servo_length = 27;
 servo_hole_d = 4;
 servo_hole_h1 = 7;
 servo_hole_h2 = 15;
@@ -16,10 +18,10 @@ difference() {
 	translate([-servo_width/2 - mount_margin_w, -servo_length/2, 0])
 		cube(size=[servo_width + mount_margin_w*2, servo_length, thikness]);
 
-	translate([-servo_width/2 - serv_hole_margin, 0, 0])
+	translate([-servo_width/2 - serv_hole_margin, 0, -1])
 	cylinder(r=mount_hole_d/2, h=thikness*4);
 
-	translate([servo_width/2 + serv_hole_margin, 0, 0])
+	translate([servo_width/2 + serv_hole_margin, 0, -1])
 	cylinder(r=mount_hole_d/2, h=thikness*4);
 }
 
@@ -35,13 +37,11 @@ module serv_mount()
 	translate([0, -servo_length/2, 0])
 	difference() {
 		cube(size=[mount_margin_w, thikness, servo_height]);
-		translate([serv_hole_margin, thikness*2, servo_hole_h1])
-		rotate(a=90, v=[1,0,0])
-			cylinder(r=servo_hole_d/2, h=thikness*4);
+		translate([serv_hole_margin, thikness, servo_hole_h1])
+		true_hole(d=servo_hole_d, L=thikness*4);
 
-		translate([serv_hole_margin, thikness*2, servo_hole_h2])
-		rotate(a=90, v=[1,0,0])
-			cylinder(r=servo_hole_d/2, h=thikness*4);
+		translate([serv_hole_margin, thikness, servo_hole_h2])
+		true_hole(d=servo_hole_d, L=thikness*4);
 	}
 }
 

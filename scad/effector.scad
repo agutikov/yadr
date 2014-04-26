@@ -1,8 +1,4 @@
 
-/*
-	все размеры для удобства можно считать в миллиметрах
-*/
-
 include <delta_mount_module.scad>;
 
 // толщина всего элемента
@@ -12,23 +8,18 @@ H = 6;
 D = 40;
 R = D/2;
 
-// минимальная ширина стенок гайки
-thikness = 10;
-
 // размеры используемые при построении гайки
-base = R + thikness;
-l = base*sqrt(3)/3;
-L = sqrt(l*l + base*base);
+X = delta_width-2*con_w;
+L = X;
+l = L/2;
+base = sqrt(L*L - l*l);
 
 // диаметр отверстия для крепления, которых 12 штук по вокруг большого отверстия
 d = 4;
 r = d/2;
 
 // размеры используемые для размещения отверстий для крепления
-r_base = R + thikness/2;
-r_l = r_base/2;
-r_L = sqrt(r_base*r_base - r_l*r_l);
-
+drill_r_base = (R + base)/2;
 
 
 // гайка с отверстиями - из шестиугольника вычтены отверстия
@@ -37,42 +28,42 @@ difference() {
 		// 6-angle
 		linear_extrude(height = H) {
 			polygon(points=[ [base, -l], [base, l], [0, L], [-base, l], [-base, -l], [0, -L] ]);
-
 		}
-
-		// далее 3 пары выступающих креплений
-
-
-		rotate(a=30, v=[0,0,1]) translate([0, R+thikness*1.5, H/2]) delta_mount();
-
-		rotate(a=150, v=[0,0,1]) translate([0, R+thikness*1.5, H/2]) delta_mount();
-
-		rotate(a=270, v=[0,0,1]) translate([0, R+thikness*1.5, H/2]) delta_mount();
-
 	}
 	{
 		// Hole in center
-		cylinder(h = H, r = R);
+		cylinder(h = H*2, r = R);
 
-		translate([r_base, 0, 0]) cylinder(h = H*10, r = r);
-		translate([-r_base, 0, 0]) cylinder(h = H*10, r = r);
-
-		translate([-r_L, r_l, 0]) cylinder(h = H*10, r = r);
-		translate([-r_L, -r_l, 0]) cylinder(h = H*10, r = r);
-
-		translate([-r_l, r_L, 0]) cylinder(h = H*10, r = r);
-		translate([-r_l, -r_L, 0]) cylinder(h = H*10, r = r);
-
-		translate([r_L, r_l, 0]) cylinder(h = H*10, r = r);
-		translate([r_L, -r_l, 0]) cylinder(h = H*10, r = r);
-
-		translate([r_l, r_L, 0]) cylinder(h = H*10, r = r);
-		translate([r_l, -r_L, 0]) cylinder(h = H*10, r = r);
-
-		translate([0, r_base, 0]) cylinder(h = H*10, r = r);
-		translate([0, -r_base, 0]) cylinder(h = H*10, r = r);
+		for (a=[0 : 30 : 330]) {
+			rotate(a=a, v=[0,0,1])
+			translate([drill_r_base, 0, 0])
+			cylinder(h = H*10, r = r);
+		}
 	}
 }
+
+
+module m2(a=0)
+{
+	rotate(a=a, v=[0,0,1])
+	translate([base, X/2-cyl_w, 0])
+	tricube(l=cyl_w, h=cyl_w, w=cyl_w);
+
+	rotate(a=a, v=[0,0,1])
+	mirror([0,1,0])
+	translate([base, X/2-cyl_w, 0])
+	tricube(l=cyl_w, h=cyl_w, w=cyl_w);
+
+	rotate(a=a+30, v=[0,0,1])
+	translate([0, base+cyl_r, cyl_r])
+	delta_mount();
+
+}
+
+// далее 3 пары креплений
+m2(a=0);
+m2(a=120);
+m2(a=240);
 
 
 
