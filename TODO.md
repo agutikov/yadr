@@ -4,11 +4,11 @@ http://forums.trossenrobotics.com/tutorials/introduction-129/delta-robot-kinemat
 
 TODO:
 
-0) write and save as much info about hardware as possible
-1) sample on python
-2) basic simpliest firmware for stm32vl-discovery
-3) full proto implementation
-4) ? lisp on board
+0. write and save as much info about hardware as possible
+1. sample on python
+2. basic simpliest firmware for stm32vl-discovery
+3. full proto implementation
+4. ? lisp on board
 
 protocol:
 
