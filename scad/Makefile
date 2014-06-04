@@ -1,15 +1,22 @@
 
 
-SCAD_SRCS= delta_mount.scad servo_mount.scad effector.scad
-STLS=$(SCAD_SRCS:.scad=.stl)
+STL= delta_mount.stl servo_mount.stl effector.stl
+DXF= base.dxf
+PS= $(DXF:.dxf=.ps)
+
 
 .PHONY: clean all
 
-all: $(STLS)
+all: $(STL) $(PS)
 
 %.stl: %.scad
 	openscad $^ -o $@
 
 clean:
-	rm *.stl
+	rm -f *.stl *.dxf *.ps *.svg *.pdf
 
+%.dxf: %.scad
+	openscad $^ -o $@
+
+%.ps: %.dxf
+	inkscape -f $^ -P %.ps
