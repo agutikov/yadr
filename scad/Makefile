@@ -19,4 +19,4 @@ clean:
 	openscad $^ -o $@
 
 %.ps: %.dxf
-	inkscape -f $^ -P %.ps
+	inkscape -f $^ -P $@

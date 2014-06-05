@@ -9,12 +9,18 @@ servo_arm_axis_offset=15;
 // расстояние от центра до оси сервы
 arm_axis_r=125;
 
+arm_thickness=5;
+
+
 module srv()
 {
 	translate([arm_axis_r-servo_arm_axis_offset,
 				arm_servo_offset, 0])
-	servo_mount();
-
+	{
+		servo_mount();
+	}
+	translate([100, 0, 5])
+	cube(size=[200, arm_thickness, 10], center=true);
 }
 
 // translating - for printing into ps file
