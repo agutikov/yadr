@@ -21,7 +21,7 @@ usart_config_t usart_config =
 
 //		.dma_channel_regs = DMA1_Channel1,
 //		.dma_irqn = DMA1_Channel1_IRQn,
-//		.dma_tc_flag = DMA1_FLAG_TC1
+//		.dma_channel_idx = 1
 	};
 
 void usart1_isr (void)
@@ -30,7 +30,7 @@ void usart1_isr (void)
 }
 void usart1_tx_dma_isr(void)
 {
-//	usart_handle_tx_dma_irq(&usart_devices[0]);
+	usart_handle_tx_dma_irq(&usart_device);
 }
 
 
@@ -112,31 +112,8 @@ void main( void )
 
 	usart_enable(usart_1);
 
-
-#if 0
-	uint8_t byte;
-	int rcvd = 0;
-
-	while (1) {
-
-		if (!rcvd && USART_GetFlagStatus(usart_1->usart_regs, USART_FLAG_RXNE) != RESET) {
-			byte = USART_ReceiveData(usart_1->usart_regs);
-			rcvd = 1;
-		}
-
-
-		if (rcvd && USART_GetFlagStatus(usart_1->usart_regs, USART_FLAG_TXE) != RESET) {
-			USART_SendData(usart_1->usart_regs, byte);
-			rcvd = 0;
-		}
-	}
-#endif
-
-
-
 	usart_send(usart_1, hello, sizeof(hello)-1);
 
-	int recv;
 
 /*
  * User console:
@@ -155,6 +132,8 @@ void main( void )
  *
  */
 
+
+	int recv;
 
 	while (1) {
 

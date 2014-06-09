@@ -42,7 +42,9 @@ typedef struct usart_config {
 
 	DMA_Channel_TypeDef* dma_channel_regs;
 	IRQn_Type dma_irqn;
-	uint32_t dma_tc_flag;
+
+	// channel 1 (in datasheet) - > idx 1
+	uint32_t dma_channel_idx;
 
 } usart_config_t;
 
@@ -57,14 +59,15 @@ typedef struct usart_config {
 typedef struct usart_ {
 	ring_buffer_t tx;
 	uint32_t last_tx_dma;
-	int tx_started;
 	ring_buffer_t rx;
 
 	USART_TypeDef* usart_regs;
 	DMA_Channel_TypeDef* dma_channel_regs;
 
 	DMA_InitTypeDef DMA_InitStructure;
-	uint32_t dma_tc_flag;
+
+	// see usart_config_t
+	uint32_t dma_channel_idx;
 
 } usart_t;
 

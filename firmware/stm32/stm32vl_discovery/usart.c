@@ -5,7 +5,6 @@
 
 #define USE_DMA 0
 
-
 void usart_init (usart_t* usart, const usart_config_t* cfg,
 		void* tx_buffer, uint32_t tx_buffer_size,
 		void* rx_buffer, uint32_t rx_buffer_size)
@@ -14,9 +13,7 @@ void usart_init (usart_t* usart, const usart_config_t* cfg,
 	ring_buffer_init(&usart->rx, rx_buffer, rx_buffer_size);
 
 	usart->last_tx_dma = 0;
-	usart->dma_tc_flag = cfg->dma_tc_flag;
-
-	usart->tx_started = 0;
+	usart->dma_channel_idx = cfg->dma_channel_idx;
 
 	usart->usart_regs = cfg->usart_regs;
 	usart->dma_channel_regs = cfg->dma_channel_regs;
@@ -53,23 +50,9 @@ void usart_init (usart_t* usart, const usart_config_t* cfg,
 	NVIC_Init(&NVIC_InitStructure);
 
 #if USE_DMA
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 2;
 	NVIC_InitStructure.NVIC_IRQChannel = cfg->dma_irqn;
 	NVIC_Init(&NVIC_InitStructure);
-
-	DMA_DeInit(usart->dma_channel_regs);
-	usart->DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&usart->usart_regs->DR;
-	usart->DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)usart->tx.head;
-	usart->DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralDST;
-	usart->DMA_InitStructure.DMA_BufferSize = 0;
-	usart->DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-	usart->DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-	usart->DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-	usart->DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
-	usart->DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-	usart->DMA_InitStructure.DMA_Priority = DMA_Priority_VeryHigh;
-	usart->DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
-	// run it on first transmit
-	// DMA_Init(usart->dma_channel_regs, &usart->DMA_InitStructure);
 #endif
 
 	USART_InitTypeDef USART_InitStructure;
@@ -92,25 +75,45 @@ void usart_enable (usart_t* usart)
 		// enable rx interrupt
 		usart->usart_regs->CR1 |= USART_CR1_RXNEIE;
 	}
+#if !USE_DMA
+	if (ring_buffer_av_data(&usart->tx)) {
+		usart->usart_regs->CR1 |= USART_CR1_TXEIE;
+	}
+#endif
 }
 void usart_disable (usart_t* usart)
 {
-
+	usart->usart_regs->CR1 &= ~(USART_CR1_UE | USART_CR1_RXNEIE | USART_CR1_TXEIE);
 }
 
 static void _tx_start (usart_t* usart)
 {
 #if USE_DMA
 	if (!usart->last_tx_dma) {
-//		DMA_DeInit(usart->dma_channel_regs);
+
+		DMA_DeInit(usart->dma_channel_regs);
+		usart->DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&usart->usart_regs->DR;
 		usart->DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)usart->tx.head;
+		usart->DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralDST;
+
 		usart->last_tx_dma = ring_buffer_av_data_cont(&usart->tx);
 		usart->DMA_InitStructure.DMA_BufferSize = usart->last_tx_dma;
+
+		usart->DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+		usart->DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
+		usart->DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
+		usart->DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
+		usart->DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
+		usart->DMA_InitStructure.DMA_Priority = DMA_Priority_VeryHigh;
+		usart->DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
 		DMA_Init(usart->dma_channel_regs, &usart->DMA_InitStructure);
+
 
 		USART_DMACmd(usart->usart_regs, USART_DMAReq_Tx, ENABLE);
 		DMA_Cmd(usart->dma_channel_regs, ENABLE);
 	}
+#else
+	usart->usart_regs->CR1 |= USART_CR1_TXEIE;
 #endif
 }
 
@@ -128,6 +131,7 @@ int usart_recv (usart_t* usart, void *ptr, uint32_t size)
 
 void usart_isr (usart_t* usart)
 {
+	uint8_t byte;
 	uint32_t sr = usart->usart_regs->SR;
 
 	if (sr & USART_SR_PE) {
@@ -147,7 +151,7 @@ void usart_isr (usart_t* usart)
 	}
 	if (sr & USART_SR_RXNE) {
 		uint32_t dr = usart->usart_regs->DR;
-		uint8_t byte = dr;
+		byte = dr;
 
 		ring_buffer_push(&usart->rx, &byte, 1);
 
@@ -157,7 +161,13 @@ void usart_isr (usart_t* usart)
 		}
 	}
 	if (sr & USART_SR_TC) {
-
+#if !USE_DMA
+		if (ring_buffer_pop(&usart->tx, &byte, 1)) {
+			usart->usart_regs->DR = byte;
+		} else {
+			usart->usart_regs->CR1 &= ~USART_CR1_TXEIE;
+		}
+#endif
 	}
 	if (sr & USART_SR_TXE) {
 
@@ -172,27 +182,26 @@ void usart_isr (usart_t* usart)
 
 int usart_send (usart_t* usart, const void *ptr, uint32_t size)
 {
-	//	int send = ring_buffer_push(&usart->tx, ptr, size);
+	int send = ring_buffer_push(&usart->tx, ptr, size);
 
-	for (int tx_count = 0; tx_count < size; tx_count++) {
-		while (!(usart->usart_regs->SR & USART_SR_TXE)) {}
-		usart->usart_regs->DR = (uint16_t)(0x01FF) & ((uint8_t*)ptr)[tx_count];
-	}
+	_tx_start(usart);
 
-	return size;
+	return send;
 }
 
+#define DMA_CHANNEL_TC_FLAG(chan_idx) (DMA1_FLAG_TC1 << 4*(chan_idx -1))
 
 void usart_handle_tx_dma_irq (usart_t* usart)
 {
+#if USE_DMA
 	//TODO: dma subsystem
-	if (DMA_GetFlagStatus(usart->dma_tc_flag) == SET) {
+	if (DMA_GetFlagStatus(DMA_CHANNEL_TC_FLAG(usart->dma_channel_idx)) == SET) {
 		// transmit finished - clear related buffer
 		ring_buffer_fflush_head(&usart->tx, usart->last_tx_dma);
 		usart->last_tx_dma = 0;
 
 		// clear interrupt flag
-		DMA_ClearFlag(usart->dma_tc_flag);
+//		DMA_ClearFlag(DMA_CHANNEL_TC_FLAG(usart->dma_channel_idx));
 
 		// if there are more data to send - start tx
 		// else - disable DMA
@@ -203,6 +212,7 @@ void usart_handle_tx_dma_irq (usart_t* usart)
 			DMA_Cmd(usart->dma_channel_regs, DISABLE);
 		}
 	}
+#endif
 }
 
 
