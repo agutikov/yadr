@@ -2,7 +2,7 @@
 include <servo_mount_module.scad>;
 
 // расстояние от середины крепления сервы до плоскости в которой движется рука
-arm_servo_offset=20;
+arm_servo_offset=25;
 // смещение оси относительно середины сервы
 // предполагается что серва в servo_mount ложится симметрично
 servo_arm_axis_offset=15;
