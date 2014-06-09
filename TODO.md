@@ -12,7 +12,7 @@ TODO:
 
 protocol:
 
-1) EEPROM storage:
+1) flash storage:
 - geometry sizes of robot parts
 - servo parameters:
     - pwm full period
@@ -22,7 +22,7 @@ protocol:
     - no smoothing
     - linear: constant speed
     - non-linear: accelerated motion - start, acceleration, highest speed, braking, stop
-All parameters, stored at EEPROM can be readed and writed.
+All parameters, stored at flash can be readed and writed.
 
 2) control commands:
 - set for single servo or all servos:
