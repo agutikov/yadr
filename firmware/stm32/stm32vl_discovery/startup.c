@@ -4,6 +4,7 @@
 #include "system_stm32f10x.h"
 #include <stdint.h>
 
+
 extern uint32_t _text;
 extern uint32_t _etext;
 
@@ -42,14 +43,19 @@ const section_t sram_sections[] = {
 };
 
 extern void main(void);
+extern void panic (int delay);
+extern void usart1_tx_dma_isr(void);
+extern void usart1_isr (void);
 
+/*
+ * Only Reset ISR may be ((noreturn)) and ((naked)).
+ * If execution should proceed after IRQ handling -
+ * ISR _MUST_ return.
+ */
+void reset_isr(void) __attribute__ ((noreturn)) __attribute__ ((naked));
 
-
-void reset_isr(void) __attribute__ ((noreturn))
-__attribute__ ((naked));
-
-void reset_isr(void) {
-
+void reset_isr(void)
+{
 	register uint32_t *src = &_erodata;
 	register uint32_t *dest = &_data;
 	register uint32_t *end = &_edata;
@@ -79,23 +85,17 @@ void reset_isr(void) {
 	while(1);
 }
 
-void hard_fault_isr(void) __attribute__ ((noreturn))
-__attribute__ ((naked));
 
-void hard_fault_isr(void) {
-
-	reset_isr();
-
-	while(1);
+void hard_fault_isr(void)
+{
+	panic(300);
 }
 
-void nmi_isr(void) {
-
-	while(1);
+void nmi_isr(void)
+{
+	panic(1000);
 }
 
-void default_isr(void) {
-}
 
 typedef void (*isr_t) (void);
 
@@ -105,8 +105,8 @@ isr_t __isr_vector[] =
 	(isr_t) (&_estack), // The initial stack pointer
 
 	reset_isr,		/*!#0 cortex-m3 reset interrupt begin code of this */
-	0,			/*!#1 cortex-m3 non maskable interrupt */
-	0,			/*!#2 cortex-m3 hardware fault interrupt */
+	nmi_isr,		/*!#1 cortex-m3 non maskable interrupt */
+	hard_fault_isr,		/*!#2 cortex-m3 hardware fault interrupt */
 	0,			/*!#3 cortex-m3 memory management interrupt */
 	0,			/*!#4 cortex-m3 bus fault interrupt */
 	0,			/*!#5 cortex-m3 usage fault interrupt */
@@ -130,7 +130,7 @@ isr_t __isr_vector[] =
 	0,			/*!%8 EXTI line2 interrupt */
 	0,			/*!%9 EXTI line3 interrupt */
 	0,			/*!%10 EXTI line4 interrupt */
-	0,			/*!%11 DMA1 channel 1 global interrupt */
+	usart1_tx_dma_isr,			/*!%11 DMA1 channel 1 global interrupt */
 	0,			/*!%12 DMA1 channel 2 global interrupt */
 	0,			/*!%13 DMA1 channel 3 global interrupt */
 	0,			/*!%14 DMA1 channel 4 global interrupt */
@@ -156,7 +156,7 @@ isr_t __isr_vector[] =
 	0,			/*!%34 I2C2 error interrupt */
 	0,			/*!%35 SPI1 global interrupt */
 	0,			/*!%36 SPI2 global interrupt */
-	0,			/*!%37 USART1 global interrupt */
+	usart1_isr,			/*!%37 USART1 global interrupt */
 	0,			/*!%38 USART2 global interrupt */
 	0,			/*!%39 USART3 global interrupt */
 	0,			/*!%40 EXTI line[15:10] interrupts */
