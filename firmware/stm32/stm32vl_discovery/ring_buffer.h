@@ -49,6 +49,39 @@ static inline uint32_t ring_buffer_av_data (ring_buffer_t* ring)
 	}
 }
 
+static inline int ring_buffer_next_byte (ring_buffer_t* ring, uint8_t* byte)
+{
+	if (ring->head == ring->tail) {
+		return 0;
+	} else {
+		*byte = *ring->head++;
+		if (ring->head == ring->buffer + ring->capacity) {
+			ring->head = ring->buffer;
+		}
+		return 1;
+	}
+}
+
+static inline int ring_buffer_add_byte (ring_buffer_t* ring, uint8_t byte)
+{
+	if (ring->head <= ring->tail) {
+		if (ring->tail < ring->buffer + ring->capacity) {
+			*ring->tail++ = byte;
+			if (ring->tail == ring->buffer + ring->capacity) {
+				ring->tail = ring->buffer;
+			}
+			return 1;
+		} else {
+			return 0;
+		}
+	} else if (ring->head > ring->tail + 1) {
+		*ring->tail++ = byte;
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 static inline uint32_t ring_buffer_av_data_cont (ring_buffer_t* ring)
 {
 	if (ring->head <= ring->tail) {

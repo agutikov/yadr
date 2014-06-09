@@ -18,6 +18,8 @@ void usart_init (usart_t* usart, const usart_config_t* cfg,
 	usart->usart_regs = cfg->usart_regs;
 	usart->dma_channel_regs = cfg->dma_channel_regs;
 
+	usart->term_newline_count = 0;
+
 	if (cfg->AHB_clocks)
 		RCC_AHBPeriphClockCmd(cfg->AHB_clocks, ENABLE);
 	if (cfg->APB1_clocks)
@@ -86,7 +88,7 @@ void usart_disable (usart_t* usart)
 	usart->usart_regs->CR1 &= ~(USART_CR1_UE | USART_CR1_RXNEIE | USART_CR1_TXEIE);
 }
 
-static void _tx_start (usart_t* usart)
+static void _usart_tx_start (usart_t* usart)
 {
 #if USE_DMA
 	if (!usart->last_tx_dma) {
@@ -117,16 +119,97 @@ static void _tx_start (usart_t* usart)
 #endif
 }
 
+void _usart_rx_enable (usart_t* usart)
+{
+
+	usart->usart_regs->CR1 |= USART_CR1_RXNEIE;
+}
+
 int usart_recv (usart_t* usart, void *ptr, uint32_t size)
 {
 	uint32_t rcvd = ring_buffer_pop(&usart->rx, ptr, size);
 
-	if (ring_buffer_av_space(&usart->rx)
-			&& !(usart->usart_regs->CR1 & USART_CR1_RXNEIE)) {
-		usart->usart_regs->CR1 |= USART_CR1_RXNEIE;
-	}
+	_usart_rx_enable(usart);
 
 	return rcvd;
+}
+
+int term_recv (usart_t* term, void* ptr, uint32_t size)
+{
+	int rx_count = 0;
+
+	for (rx_count = 0; rx_count < size; rx_count++) {
+
+		if (ring_buffer_next_byte(&term->rx, ((uint8_t*)ptr))) {
+
+			if (*((uint8_t*)ptr) == '\x0A') {
+				term->term_newline_count--;
+			}
+
+			ptr = ((uint8_t*)ptr) + 1;
+		} else {
+			break;
+		}
+	}
+
+	if (rx_count) {
+		_usart_rx_enable(term);
+		_usart_tx_start(term);
+	}
+
+	return rx_count;
+}
+
+int term_getline (usart_t* term, void* ptr, uint32_t size)
+{
+	int rx_count = 0;
+
+	if (term->term_newline_count) {
+		for (rx_count = 0; rx_count < size-1; rx_count++) {
+
+			if (ring_buffer_next_byte(&term->rx, ((uint8_t*)ptr))) {
+
+				if (*((uint8_t*)ptr) == '\x0A') {
+					term->term_newline_count--;
+					break;
+				}
+
+				ptr = ((uint8_t*)ptr) + 1;
+			} else {
+				break;
+			}
+		}
+	}
+
+	*((uint8_t*)ptr) = 0;
+
+	if (rx_count) {
+		_usart_rx_enable(term);
+		_usart_tx_start(term);
+	}
+
+	return rx_count;
+}
+
+int term_send (usart_t* term, const void* ptr, uint32_t size)
+{
+	int tx_count = 0;
+
+	for (tx_count = 0; tx_count < size; tx_count++) {
+
+		if (*((uint8_t*)ptr) == '\x0A') {
+			ring_buffer_add_byte(&term->tx, '\x0D');
+		}
+
+		ring_buffer_add_byte(&term->tx, *((uint8_t*)ptr));
+
+		ptr = ((uint8_t*)ptr) + 1;
+	}
+
+	if (tx_count)
+		_usart_tx_start(term);
+
+	return tx_count;
 }
 
 void usart_isr (usart_t* usart)
@@ -153,7 +236,14 @@ void usart_isr (usart_t* usart)
 		uint32_t dr = usart->usart_regs->DR;
 		byte = dr;
 
+		if (byte == '\x0D') {
+			ring_buffer_push(&usart->tx, &byte, 1);
+			usart->term_newline_count++;
+			byte = '\x0A';
+		}
+
 		ring_buffer_push(&usart->rx, &byte, 1);
+		ring_buffer_push(&usart->tx, &byte, 1);
 
 		//TODO: flow control
 		if (!ring_buffer_av_space(&usart->rx)) {
@@ -161,6 +251,9 @@ void usart_isr (usart_t* usart)
 		}
 	}
 	if (sr & USART_SR_TC) {
+
+	}
+	if (sr & USART_SR_TXE) {
 #if !USE_DMA
 		if (ring_buffer_pop(&usart->tx, &byte, 1)) {
 			usart->usart_regs->DR = byte;
@@ -168,9 +261,6 @@ void usart_isr (usart_t* usart)
 			usart->usart_regs->CR1 &= ~USART_CR1_TXEIE;
 		}
 #endif
-	}
-	if (sr & USART_SR_TXE) {
-
 	}
 	if (sr & USART_SR_LBD) {
 
@@ -184,7 +274,7 @@ int usart_send (usart_t* usart, const void *ptr, uint32_t size)
 {
 	int send = ring_buffer_push(&usart->tx, ptr, size);
 
-	_tx_start(usart);
+	_usart_tx_start(usart);
 
 	return send;
 }
@@ -206,7 +296,7 @@ void usart_handle_tx_dma_irq (usart_t* usart)
 		// if there are more data to send - start tx
 		// else - disable DMA
 		if (ring_buffer_av_data(&usart->tx)) {
-			_tx_start(usart);
+			_usart_tx_start(usart);
 		} else {
 			USART_DMACmd(usart->usart_regs, USART_DMAReq_Tx, DISABLE);
 			DMA_Cmd(usart->dma_channel_regs, DISABLE);

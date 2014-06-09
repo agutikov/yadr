@@ -1,4 +1,24 @@
 
+/*
+	A6 - pwm tim3
+	A7 - pwm tim3
+
+	A9 - usart1 tx
+	A10 - usart1 rx
+
+	B0 - pwm tim3
+
+	C8 - blue led
+	C9 - green led
+
+
+
+
+
+ */
+
+#include "stm32f10x_tim.h"
+
 #include "usart.h"
 
 #define USART_NUMBER 3
@@ -87,18 +107,125 @@ void panic (int delay)
 	}
 }
 
+
+void servo_pwm_timer_init (void)
+{
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
+
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB |
+						 RCC_APB2Periph_GPIOC | RCC_APB2Periph_AFIO, ENABLE);
+
+
+	GPIO_InitTypeDef GPIO_InitStructure;
+
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+
+	GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+	GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+
+	/* -----------------------------------------------------------------------
+	For servo we need 50 Hz output freq. and about 2% - 20% duty cycle.
+	20 ms - period, high value 0.9 - 2.5 ms
+
+	TIM3 Configuration: generate 3 PWM signals with 3 different duty cycles:
+	The TIM3CLK frequency is set to SystemCoreClock (Hz), to get TIM3 counter
+	clock at 1 MHz the Prescaler is computed as following:
+	 - Prescaler = (TIM3CLK / TIM3 counter clock) - 1
+	SystemCoreClock is set to 72 MHz for Low-density, Medium-density, High-density
+	and Connectivity line devices and to 24 MHz for Low-Density Value line and
+	Medium-Density Value line devices
+
+	The TIM3 is running at 50 Hz: TIM3 Frequency = TIM3 counter clock/(ARR + 1)
+												  = 1 MHz / 20000 = 50 Hz
+	TIM3 Channel1 duty cycle = (TIM3_CCR1/ TIM3_ARR) * 20 ms
+
+	----------------------------------------------------------------------- */
+
+	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
+	TIM_OCInitTypeDef  TIM_OCInitStructure;
+	uint16_t CCR1_Val = 1000;
+	uint16_t CCR2_Val = 1500;
+	uint16_t CCR3_Val = 2000;
+	uint16_t PrescalerValue = 0;
+
+	/* Compute the prescaler value */
+	PrescalerValue = (uint16_t) (SystemCoreClock / 1000000) - 1;
+	/* Time base configuration */
+	TIM_TimeBaseStructure.TIM_Period = 20000;
+	TIM_TimeBaseStructure.TIM_Prescaler = PrescalerValue;
+	TIM_TimeBaseStructure.TIM_ClockDivision = 0;
+	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+
+	TIM_TimeBaseInit(TIM3, &TIM_TimeBaseStructure);
+
+	/* PWM1 Mode configuration: Channel1 */
+	TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
+	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
+	TIM_OCInitStructure.TIM_Pulse = CCR1_Val;
+	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
+
+	TIM_OC1Init(TIM3, &TIM_OCInitStructure);
+
+	TIM_OC1PreloadConfig(TIM3, TIM_OCPreload_Enable);
+
+	/* PWM1 Mode configuration: Channel2 */
+	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
+	TIM_OCInitStructure.TIM_Pulse = CCR2_Val;
+
+	TIM_OC2Init(TIM3, &TIM_OCInitStructure);
+
+	TIM_OC2PreloadConfig(TIM3, TIM_OCPreload_Enable);
+
+	/* PWM1 Mode configuration: Channel3 */
+	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
+	TIM_OCInitStructure.TIM_Pulse = CCR3_Val;
+
+	TIM_OC3Init(TIM3, &TIM_OCInitStructure);
+
+	TIM_OC3PreloadConfig(TIM3, TIM_OCPreload_Enable);
+
+
+
+	TIM_ARRPreloadConfig(TIM3, ENABLE);
+
+	/* TIM3 enable counter */
+	TIM_Cmd(TIM3, ENABLE);
+}
+
+
+void servo_set_pwm (int servo_id, uint16_t duty_us)
+{
+	switch (servo_id) {
+	case 0:
+		TIM_SetCompare1(TIM3, duty_us);
+		break;
+	case 1:
+		TIM_SetCompare2(TIM3, duty_us);
+		break;
+	case 2:
+		TIM_SetCompare3(TIM3, duty_us);
+		break;
+	}
+}
+
+
+
 /*
  * TODO:
- * - strlen
+ * - libc: strlen, snprntf, vsnprintf >> printy into usart1
+ * - console and command loop
+ * - usart2
  * - __FILE__, __LINE__, __FUNCTION__
- * - snprntf, printy >> usart1
  */
 
-const char hello[] = "Yet Another Delta Robot\r\n";
+const char hello[] = "Yet Another Delta Robot\n";
 
 uint8_t buffer[128];
-
-extern int usart_dbg_get_byte (uint8_t* b);
 
 void main( void )
 {
@@ -112,7 +239,7 @@ void main( void )
 
 	usart_enable(usart_1);
 
-	usart_send(usart_1, hello, sizeof(hello)-1);
+	term_send(usart_1, hello, sizeof(hello)-1);
 
 
 /*
@@ -137,10 +264,10 @@ void main( void )
 
 	while (1) {
 
-		recv = usart_recv(usart_1, buffer, sizeof(buffer));
+		recv = term_getline(usart_1, buffer, sizeof(buffer));
 
 		if (recv > 0) {
-			usart_send(usart_1, buffer, recv);
+			term_send(usart_1, buffer, recv);
 		} else {
 		}
 

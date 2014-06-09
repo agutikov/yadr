@@ -69,6 +69,8 @@ typedef struct usart_ {
 	// see usart_config_t
 	uint32_t dma_channel_idx;
 
+	int term_newline_count;
+
 } usart_t;
 
 void usart_init (usart_t* usart, const usart_config_t* cfg,
@@ -79,10 +81,15 @@ void usart_enable (usart_t* usart);
 void usart_disable (usart_t* usart);
 
 int usart_send (usart_t* usart, const void *ptr, uint32_t size);
-
 int usart_recv (usart_t* usart, void *ptr, uint32_t size);
+
+int term_send (usart_t* term, const void* ptr, uint32_t size);
+int term_recv (usart_t* term, void* ptr, uint32_t size);
+
 
 void usart_isr (usart_t* usart);
 void usart_handle_tx_dma_irq (usart_t* usart);
+
+
 
 #endif
