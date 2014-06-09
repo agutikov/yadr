@@ -242,7 +242,7 @@ void main( void )
 	usart_enable(usart_1);
 
 	const char* hello = "Yet Another Delta Robot\n";
-	usart_send(usart_1, hello, strlen(hello));
+	usart_send(usart_1, hello, 20);
 
 
 /*

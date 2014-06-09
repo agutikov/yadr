@@ -2,8 +2,6 @@
 #include "usart.h"
 
 #include <string.h>
-#include <stdarg.h>
-#include <stdio.h>
 
 #define USE_DMA 0
 
