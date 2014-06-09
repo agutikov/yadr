@@ -83,9 +83,16 @@ void usart_disable (usart_t* usart);
 int usart_send (usart_t* usart, const void *ptr, uint32_t size);
 int usart_recv (usart_t* usart, void *ptr, uint32_t size);
 
+#define CR ((uint8_t)13)
+#define LF ((uint8_t)10)
+
 int term_send (usart_t* term, const void* ptr, uint32_t size);
 int term_recv (usart_t* term, void* ptr, uint32_t size);
+int term_getline (usart_t* term, void* ptr, uint32_t size);
 
+#define PRINTF_BUFFER_SIZE 512
+
+void term_printf (usart_t* term, const char* format, ...);
 
 void usart_isr (usart_t* usart);
 void usart_handle_tx_dma_irq (usart_t* usart);

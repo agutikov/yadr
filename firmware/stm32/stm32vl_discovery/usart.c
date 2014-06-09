@@ -2,6 +2,8 @@
 #include "usart.h"
 
 #include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 #define USE_DMA 0
 
@@ -137,16 +139,17 @@ int usart_recv (usart_t* usart, void *ptr, uint32_t size)
 int term_recv (usart_t* term, void* ptr, uint32_t size)
 {
 	int rx_count = 0;
+	uint8_t* bytes = (uint8_t*)ptr;
 
 	for (rx_count = 0; rx_count < size; rx_count++) {
 
-		if (ring_buffer_next_byte(&term->rx, ((uint8_t*)ptr))) {
+		if (ring_buffer_next_byte(&term->rx, bytes)) {
 
-			if (*((uint8_t*)ptr) == '\x0A') {
+			if (*bytes == LF) {
 				term->term_newline_count--;
 			}
 
-			ptr = ((uint8_t*)ptr) + 1;
+			bytes++;
 		} else {
 			break;
 		}
@@ -163,25 +166,26 @@ int term_recv (usart_t* term, void* ptr, uint32_t size)
 int term_getline (usart_t* term, void* ptr, uint32_t size)
 {
 	int rx_count = 0;
+	uint8_t* bytes = (uint8_t*)ptr;
 
 	if (term->term_newline_count) {
 		for (rx_count = 0; rx_count < size-1; rx_count++) {
 
-			if (ring_buffer_next_byte(&term->rx, ((uint8_t*)ptr))) {
+			if (ring_buffer_next_byte(&term->rx, bytes)) {
 
-				if (*((uint8_t*)ptr) == '\x0A') {
+				if (*bytes == LF) {
 					term->term_newline_count--;
 					break;
 				}
 
-				ptr = ((uint8_t*)ptr) + 1;
+				bytes++;
 			} else {
 				break;
 			}
 		}
 	}
 
-	*((uint8_t*)ptr) = 0;
+	*bytes = 0;
 
 	if (rx_count) {
 		_usart_rx_enable(term);
@@ -194,22 +198,55 @@ int term_getline (usart_t* term, void* ptr, uint32_t size)
 int term_send (usart_t* term, const void* ptr, uint32_t size)
 {
 	int tx_count = 0;
+	uint8_t* bytes = (uint8_t*)ptr;
 
 	for (tx_count = 0; tx_count < size; tx_count++) {
 
-		if (*((uint8_t*)ptr) == '\x0A') {
-			ring_buffer_add_byte(&term->tx, '\x0D');
+		/*
+		 * Use LF as newline in C-code.
+		 * Send to minicom CRLF.
+		 */
+		if (*bytes == LF) {
+			ring_buffer_add_byte(&term->tx, CR);
 		}
+		ring_buffer_add_byte(&term->tx, *bytes);
 
-		ring_buffer_add_byte(&term->tx, *((uint8_t*)ptr));
-
-		ptr = ((uint8_t*)ptr) + 1;
+		bytes++;
 	}
 
 	if (tx_count)
 		_usart_tx_start(term);
 
 	return tx_count;
+}
+
+char printf_buffer[PRINTF_BUFFER_SIZE];
+
+void term_printf (usart_t* term, const char* format, ...)
+{
+#if 0
+/*
+
+arm-none-eabi-gcc -Wl,-nostartfiles -Wl,-M -Wl,-Map,firmware.map -Wl,-T,stm32f100rb.ld main.o startup.o usart.o system_stm32f10x.o stm32f10x_gpio.o stm32f10x_rcc.o stm32f10x_usart.o stm32f10x_adc.o stm32f10x_tim.o stm32f10x_flash.o stm32f10x_can.o stm32f10x_dma.o stm32f10x_exti.o stm32f10x_rtc.o misc.o -o firmware.elf
+/usr/libexec/gcc/arm-none-eabi/ld: section .init loaded at [0000000008013bcc,0000000008013be3] overlaps section .data loaded at [0000000008013bcc,00000000080146ff]
+/usr/lib/gcc/arm-none-eabi/4.8.2/../../../../arm-none-eabi/lib/crt0.o: In function `_start':
+/var/tmp/portage/cross-arm-none-eabi/newlib-2.1.0/work/newlib-2.1.0/newlib/libc/sys/arm/crt0.S:405: undefined reference to `__bss_start__'
+/var/tmp/portage/cross-arm-none-eabi/newlib-2.1.0/work/newlib-2.1.0/newlib/libc/sys/arm/crt0.S:405: undefined reference to `__bss_end__'
+/var/tmp/portage/cross-arm-none-eabi/newlib-2.1.0/work/newlib-2.1.0/newlib/libc/sys/arm/crt0.S:405: undefined reference to `__end__'
+/usr/lib/gcc/arm-none-eabi/4.8.2/../../../../arm-none-eabi/lib/libc.a(lib_a-syscalls.o): In function `_sbrk':
+/var/tmp/portage/cross-arm-none-eabi/newlib-2.1.0/work/newlib-2.1.0/newlib/libc/sys/arm/syscalls.c:485: undefined reference to `end'
+collect2: error: ld returned 1 exit status
+make: *** [firmware.elf] Error 1
+
+
+ */
+	va_list args;
+	va_start(args, format);
+	uint32_t length = vsnprintf(printf_buffer, sizeof(printf_buffer), format, args);
+	va_end(args);
+
+	term_send(term, printf_buffer, length);
+#endif
 }
 
 void usart_isr (usart_t* usart)
@@ -236,14 +273,20 @@ void usart_isr (usart_t* usart)
 		uint32_t dr = usart->usart_regs->DR;
 		byte = dr;
 
-		if (byte == '\x0D') {
-			ring_buffer_push(&usart->tx, &byte, 1);
+		/*
+		 * Recv from minicom CR as newline.
+		 * Relpace it with LF.
+		 * Send back CRLF.
+		 */
+		if (byte == CR) {
+			ring_buffer_add_byte(&usart->tx, byte);
 			usart->term_newline_count++;
-			byte = '\x0A';
+			byte = LF;
 		}
+		ring_buffer_add_byte(&usart->tx, byte);
+		ring_buffer_add_byte(&usart->rx, byte);
 
-		ring_buffer_push(&usart->rx, &byte, 1);
-		ring_buffer_push(&usart->tx, &byte, 1);
+		_usart_tx_start(usart);
 
 		//TODO: flow control
 		if (!ring_buffer_av_space(&usart->rx)) {
@@ -255,7 +298,7 @@ void usart_isr (usart_t* usart)
 	}
 	if (sr & USART_SR_TXE) {
 #if !USE_DMA
-		if (ring_buffer_pop(&usart->tx, &byte, 1)) {
+		if (ring_buffer_next_byte(&usart->tx, &byte)) {
 			usart->usart_regs->DR = byte;
 		} else {
 			usart->usart_regs->CR1 &= ~USART_CR1_TXEIE;

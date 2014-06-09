@@ -17,9 +17,12 @@
 
  */
 
+#include <string.h>
+
 #include "stm32f10x_tim.h"
 
 #include "usart.h"
+
 
 #define USART_NUMBER 3
 #define USART_BUFF_SIZE	512
@@ -217,15 +220,14 @@ void servo_set_pwm (int servo_id, uint16_t duty_us)
 
 /*
  * TODO:
- * - libc: strlen, snprntf, vsnprintf >> printy into usart1
+ * - vsnprintf >> printy into usart1
  * - console and command loop
  * - usart2
- * - __FILE__, __LINE__, __FUNCTION__
  */
 
-const char hello[] = "Yet Another Delta Robot\n";
 
-uint8_t buffer[128];
+
+char line_buffer[USART_BUFF_SIZE];
 
 void main( void )
 {
@@ -239,7 +241,8 @@ void main( void )
 
 	usart_enable(usart_1);
 
-	term_send(usart_1, hello, sizeof(hello)-1);
+	const char* hello = "Yet Another Delta Robot\n";
+	usart_send(usart_1, hello, strlen(hello));
 
 
 /*
@@ -264,10 +267,13 @@ void main( void )
 
 	while (1) {
 
-		recv = term_getline(usart_1, buffer, sizeof(buffer));
+		recv = usart_recv(usart_1, line_buffer, sizeof(line_buffer));
 
 		if (recv > 0) {
-			term_send(usart_1, buffer, recv);
+
+
+			// term_printf(usart_1, "recvd %d bytes\n", recv);
+
 		} else {
 		}
 
