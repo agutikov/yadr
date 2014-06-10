@@ -110,6 +110,7 @@ void panic (int delay)
 	}
 }
 
+#define SERVO_PWM_INIT_VALUE 2000
 
 void servo_pwm_timer_init (void)
 {
@@ -151,9 +152,9 @@ void servo_pwm_timer_init (void)
 
 	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
 	TIM_OCInitTypeDef  TIM_OCInitStructure;
-	uint16_t CCR1_Val = 1000;
-	uint16_t CCR2_Val = 1500;
-	uint16_t CCR3_Val = 2000;
+	uint16_t CCR1_Val = SERVO_PWM_INIT_VALUE;
+	uint16_t CCR2_Val = SERVO_PWM_INIT_VALUE;
+	uint16_t CCR3_Val = SERVO_PWM_INIT_VALUE;
 	uint16_t PrescalerValue = 0;
 
 	/* Compute the prescaler value */
@@ -216,7 +217,12 @@ void servo_set_pwm (int servo_id, uint16_t duty_us)
 	}
 }
 
-
+void servo_set_all_pwm (uint16_t duty1_us, uint16_t duty2_us, uint16_t duty3_us)
+{
+	TIM_SetCompare1(TIM3, duty1_us);
+	TIM_SetCompare2(TIM3, duty2_us);
+	TIM_SetCompare3(TIM3, duty3_us);
+}
 
 /*
  * TODO:
@@ -244,6 +250,13 @@ void main( void )
 	const char* hello = "Yet Another Delta Robot\n";
 	usart_send(usart_1, hello, 20);
 
+
+
+
+	servo_pwm_timer_init();
+
+
+//	servo_set_all_pwm(1500, 1500, 1500);
 
 /*
  * User console:
