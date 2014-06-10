@@ -48,7 +48,22 @@ SECTIONS
 		. = ALIGN(4);
 		_ebss = .;
 	} > SRAM
-}
 
-_estack = ORIGIN(SRAM) + LENGTH(SRAM);
-_stack = _estack - 4K;
+	.heap :
+	{
+		. = ALIGN(4);
+		_heap = .;
+		. = . + 0;
+		. = ALIGN(4);
+		_eheap = .;
+	} > SRAM
+
+	_stack_size = 1024;
+	_estack = ORIGIN(SRAM) + LENGTH(SRAM);
+	_stack = _estack - _stack_size;
+	. = _stack;
+	.stack :
+	{
+		. = . + _stack_size;
+	} > SRAM
+}
