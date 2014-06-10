@@ -11,10 +11,6 @@
 	C8 - blue led
 	C9 - green led
 
-
-
-
-
  */
 
 #include <string.h>
@@ -160,10 +156,7 @@ void servo_pwm_timer_init (void)
 
 	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
 	TIM_OCInitTypeDef  TIM_OCInitStructure;
-	uint16_t PrescalerValue = 0;
-
-	/* Compute the prescaler value */
-	PrescalerValue = (uint16_t) (SystemCoreClock / 1000000) - 1;
+	uint16_t PrescalerValue = (SystemCoreClock / 1000000) - 1;
 	/* Time base configuration */
 	TIM_TimeBaseStructure.TIM_Period = 20000;
 	TIM_TimeBaseStructure.TIM_Prescaler = PrescalerValue;
@@ -265,10 +258,7 @@ void servo_sync_pwm (void)
 
 /*
  * TODO:
- * - vsnprintf >> printy into usart1
- * - struct of cammands and function binding, separate parsing parameters
- * - autocomplete, history
- * - scripting language (for example lisp)
+ * - manually implement int2str, byte2hex ...
  * - usart2 for device-device communication
  */
 
@@ -318,10 +308,77 @@ void parse_args (char* cmd, uint32_t cmd_length)
 
 const char* help = "help, h, ? - print this message\n";
 
+#define START_DUTY 2000
+
+void test_pwm (int id)
+{
+	for (int duty = START_DUTY; duty < START_DUTY + 500; duty++) {
+		servo_set_pwm_duty(id, duty);
+		servo_switch_pwm(id, 1);
+		wait(5);
+	}
+	for (int duty = START_DUTY + 500; duty > START_DUTY - 500; duty--) {
+		servo_set_pwm_duty(id, duty);
+		servo_switch_pwm(id, 1);
+		wait(5);
+	}
+	for (int duty = START_DUTY - 500; duty < START_DUTY; duty++) {
+		servo_set_pwm_duty(id, duty);
+		servo_switch_pwm(id, 1);
+		wait(5);
+	}
+}
+void test_all_pwm ()
+{
+	for (int duty = START_DUTY; duty < START_DUTY + 500; duty++) {
+		servo_set_all_pwm_duty(duty, duty, duty);
+		servo_switch_all_pwm(1, 1, 1);
+		wait(5);
+	}
+	for (int duty = START_DUTY + 500; duty > START_DUTY - 500; duty--) {
+		servo_set_all_pwm_duty(duty, duty, duty);
+		servo_switch_all_pwm(1, 1, 1);
+		wait(5);
+	}
+	for (int duty = START_DUTY - 500; duty < START_DUTY; duty++) {
+		servo_set_all_pwm_duty(duty, duty, duty);
+		servo_switch_all_pwm(1, 1, 1);
+		wait(5);
+	}
+}
+
 int cmd_exec (int argc, const char* argv[], usart_t* term)
 {
 	if (!strcmp(argv[0], "help") || argv[0][0] == '?' || argv[0][0] == 'h') {
 		term_putstr(term, help);
+		return 0;
+	}
+
+	if (!strcmp(argv[0], "start")) {
+
+		int duty = START_DUTY;
+
+		servo_set_all_pwm_duty(duty, duty, duty);
+		servo_switch_all_pwm(1, 1, 1);
+
+		term_putstr(term, "All pwm 2000\n");
+		return 0;
+	}
+
+	if (!strcmp(argv[0], "test1")) {
+		test_pwm(0);
+		return 0;
+	}
+	if (!strcmp(argv[0], "test2")) {
+		test_pwm(1);
+		return 0;
+	}
+	if (!strcmp(argv[0], "test3")) {
+		test_pwm(2);
+		return 0;
+	}
+	if (!strcmp(argv[0], "test_all")) {
+		test_all_pwm();
 		return 0;
 	}
 
@@ -378,15 +435,6 @@ void main( void )
 	servo_pwm_timer_init();
 
 	term_putstr(usart_1, "Servo PWM configured.\n");
-#if 0
-	int a = strtol("123", 0, 0);
-
-	if (a == 123) {
-		led_num(1);
-	} else {
-		led_num(3);
-	}
-#endif
 
 	int recv;
 
@@ -400,7 +448,7 @@ void main( void )
 			if (cmd_buffer[0] != LF) {
 
 				parse_args(cmd_buffer, recv);
-#if 1
+#if 0
 				for (int i = 0; i < argc; i++) {
 					term_putstr(usart_1, argv[i]);
 					term_putstr(usart_1, "\n");
