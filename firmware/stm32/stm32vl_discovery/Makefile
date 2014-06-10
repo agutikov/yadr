@@ -6,11 +6,13 @@ OBJCOPY=$(CROSS_PREFIX)objcopy
 OBJDUMP=$(CROSS_PREFIX)objdump
 LD=$(CROSS_PREFIX)ld
 
+ARCH_FLAGS= -mcpu=cortex-m3 -mlittle-endian -mthumb
+
 CFLAGS=-std=gnu99 -ffreestanding
 # -nostdlib -nostdinc
 CFLAGS+=-ggdb -O0
 # CFLAGS+=-O2
-CFLAGS+= -mcpu=cortex-m3 -mlittle-endian -mthumb
+CFLAGS+= $(ARCH_FLAGS)
 CFLAGS+= -Wall
 # STM32F10X_MD_VL enables the maximum system clock (24MHz) in system_stm32f10x.c
 CFLAGS+= -DSTM32F10X_MD_VL
@@ -28,7 +30,7 @@ CFLAGS+= -I$(SPL_DRIVER_DIR)/inc
 
 LDSCRIPT=stm32f100rb.ld
 
-GCCLDFLAGS= -nostartfiles -Wl,-M -Wl,-Map,firmware.map
+GCCLDFLAGS= $(ARCH_FLAGS) -nostartfiles -Wl,-M -Wl,-Map,firmware.map
 
 SRCS=main.c startup.c usart.c
 LOCAL_OBJS=$(SRCS:.c=.o)
