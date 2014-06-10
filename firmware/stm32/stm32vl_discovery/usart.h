@@ -2,6 +2,7 @@
 #define _USART_DRV_H_
 
 #include <stdint.h>
+#include <string.h>
 
 #include "stm32f10x.h"
 #include "stm32f10x_rcc.h"
@@ -87,6 +88,10 @@ int usart_recv (usart_t* usart, void *ptr, uint32_t size);
 #define LF ((uint8_t)10)
 
 int term_send (usart_t* term, const void* ptr, uint32_t size);
+static inline void term_putstr (usart_t* term, const void* str)
+{
+	term_send(term, str, strlen(str));
+}
 int term_recv (usart_t* term, void* ptr, uint32_t size);
 int term_getline (usart_t* term, void* ptr, uint32_t size);
 
