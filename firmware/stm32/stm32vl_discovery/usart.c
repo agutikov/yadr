@@ -2,6 +2,7 @@
 #include "usart.h"
 
 #include <string.h>
+#include <stdarg.h>
 
 #define USE_DMA 0
 
@@ -155,7 +156,6 @@ int term_recv (usart_t* term, void* ptr, uint32_t size)
 
 	if (rx_count) {
 		_usart_rx_enable(term);
-		_usart_tx_start(term);
 	}
 
 	return rx_count;
@@ -173,6 +173,8 @@ int term_getline (usart_t* term, void* ptr, uint32_t size)
 
 				if (*bytes == LF) {
 					term->term_newline_count--;
+					bytes++;
+					rx_count++;
 					break;
 				}
 
@@ -187,7 +189,6 @@ int term_getline (usart_t* term, void* ptr, uint32_t size)
 
 	if (rx_count) {
 		_usart_rx_enable(term);
-		_usart_tx_start(term);
 	}
 
 	return rx_count;
