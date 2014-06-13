@@ -78,16 +78,20 @@ Yet Another Delta Robot
 a, S, dt, k
 z = A+S, r = S/2
 v = 1
+x = a
 while v < (a+r - x)/2:
   x = x + v
   v = v + k
+  write(x)
   wait(dt)
 v = (a+r - x)/2
 repeat 4 times:
   x = x + v
+  write(x)
   wait(dt)
 while x < z:
   x = x + v
+  write(x)
   if v > 1:
     v = v - k
   wait(dt)
