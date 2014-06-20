@@ -122,23 +122,56 @@ def delta_calcInverse(x0, y0, z0) :
 
 
 
+# print("  a   b   c   :   x    y    z")
+# print("-----------------------------")
+
+rng = list(range(-60, 70, 10))
+irng = list(reversed(rng))
+
+a = -60
+b = -60
+
+for a in rng:
+	xyz = delta_calcForward(a, b, b)[1:]
+#	print(("%3d %3d %3d   :" % (a, b, b)) + "%4.1d %4.1d %4.1d" % xyz)
+
+a = 60
+
+for b in rng:
+	xyz = delta_calcForward(a, b, b)[1:]
+#	print(("%3d %3d %3d   :" % (a, b, b)) + "%4.1d %4.1d %4.1d" % xyz)
+
+b = 60
+
+for a in irng:
+	xyz = delta_calcForward(a, b, b)[1:]
+#	print(("%3d %3d %3d   :" % (a, b, b)) + "%4.1d %4.1d %4.1d" % xyz)
+
+a = -60
+
+for b in irng:
+	xyz = delta_calcForward(a, b, b)[1:]
+#	print(("%3d %3d %3d   :" % (a, b, b)) + "%4.1d %4.1d %4.1d" % xyz)
 
 
+list_all = []
 
+start = -60
+stop = 60
+d = 3
+rng = range(start, stop + d, d)
 
-pprint(delta_calcForward(0, 30, -45))
+for a in rng:
+	for b in rng:
+		for c in rng:
+			xyz = delta_calcForward(a, b, c)[1:]
+			list_all.append(xyz)
+			# print("%f %f %f" % xyz)
 
+sorted_list = sorted(list_all, key=lambda a: a[2])
 
-
-pprint(delta_calcInverse(50, 50, -140))
-
-
-
-
-
-
-
-
+for t in sorted_list:
+	print("%f %f %f" % t)
 
 
 
