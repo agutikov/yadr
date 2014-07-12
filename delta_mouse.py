@@ -30,11 +30,6 @@ opts = vars(opt_values)
 # pprint(opts)
 # pprint(args)
 
-if not opts["device_filename"]:
-	opt_parser.print_help()
-	exit(-1)
-
-
 
 class delta_kinematics:
 # http://forums.trossenrobotics.com/tutorials/introduction-129/delta-robot-kinematics-3276/
@@ -160,12 +155,28 @@ class point:
 	def tuple (self):
 		return (self.x, self.y, self.z)
 
+	def scal_xy(self, b):
+		return self.x*b.x + self.y*b.y
+
+	def norm_xy (self):
+		s = math.sqrt(self.scal_xy(self))
+		if s != 0:
+			self.x /= s
+			self.y /= s
+		else:
+			self.x = 0
+			self.y = 0
+
+	def mul_xy (self, k):
+		self.x *= k
+		self.y *= k
+
 
 
 kinematics = delta_kinematics(120, 50, 130, 320)
 
-angle_max = 45
-angle_min = -45
+angle_max = 60
+angle_min = -60
 
 center = point(kinematics.delta_calcForward(0, 0, 0)[1:])
 top = point(kinematics.delta_calcForward(angle_min, angle_min, angle_min)[1:])
@@ -215,10 +226,14 @@ def point_bounds (p):
 		result.z = 0
 	if result.z > work_H:
 		result.z = work_H
-	if abs(result.y) >= work_R:
-		result.y = sign(result.y) * (work_R-1)
+#	if abs(result.y) >= work_R:
+#		result.y = sign(result.y) * (work_R-1)
+
 	if (result.x**2 + result.y**2) > work_R**2 :
-		result.x = sign(result.x)*int(math.sqrt(work_R**2 - result.y**2))
+#		result.x = sign(result.x)*int(math.sqrt(work_R**2 - result.y**2))
+		result.norm_xy()
+		result.mul_xy(work_R)
+
 	return result
 
 
@@ -237,20 +252,6 @@ def angles_bounds (a_t):
 	 angle_max if a_t[1] > angle_max else (angle_min if a_t[1] < angle_min else a_t[1]),
 	 angle_max if a_t[2] > angle_max else (angle_min if a_t[2] < angle_min else a_t[2]))
 
-# convert delta point into angles
-def point2angles (delta_point):
-	kin = kinematics.delta_calcInverse(delta_point.x, delta_point.y, delta_point.z)
-	if kin[0]:
-		angles = kin[1:]
-		safe_angles = angles_bounds(angles)
-		return safe_angles
-	else:
-		print("point2angles: kinematics fail")
-		print("delta_point:")
-		pprint(delta_point.tuple())
-		print("kinematics result:")
-		pprint(kin)
-		return (0, 0, 0)
 
 # intial condition
 work_current_point = point((0,0,0))
@@ -258,15 +259,31 @@ delta_current_point = point((0,0,0))
 delta_current_angles = (0,0,0)
 delta_current_pwm = (0,0,0)
 
+
+# convert delta point into angles
+def point2angles (delta_point):
+	global delta_current_angles
+	kin = kinematics.delta_calcInverse(delta_point.x, delta_point.y, delta_point.z)
+	if kin[0]:
+		angles = kin[1:]
+		delta_current_angles = angles_bounds(angles)
+'''
+	else:
+		print("point2angles: kinematics fail")
+		print("delta_point:")
+		pprint(delta_point.tuple())
+		print("kinematics result:")
+		pprint(kin)
+'''
+
 def delta_reset():
 	global work_current_point
 	global delta_current_point
-	global delta_current_angles
 	global delta_current_pwm
 	work_current_point = point(work_start.tuple())
 	work_current_point = point_bounds(work_current_point)
 	delta_current_point = convert_point(work_current_point)
-	delta_current_angles = point2angles(delta_current_point)
+	point2angles(delta_current_point)
 	delta_current_pwm = angles2duty(delta_current_angles)
 
 delta_reset()
@@ -281,35 +298,36 @@ print("delta start pwm:")
 pprint(delta_current_pwm)
 
 
+if opts["device_filename"]:
+	port = serial.Serial(port=opts["device_filename"],
+			baudrate=19200,
+			timeout=0,
+			bytesize=serial.EIGHTBITS,
+			parity=serial.PARITY_NONE,
+			stopbits=serial.STOPBITS_ONE,
+			xonxoff=False,
+			rtscts=False,
+			dsrdtr=False
+			)
 
-port = serial.Serial(port=opts["device_filename"],
-		     baudrate=19200,
-		     timeout=0,
-		     bytesize=serial.EIGHTBITS,
-		     parity=serial.PARITY_NONE,
-		     stopbits=serial.STOPBITS_ONE,
-		     xonxoff=False,
-		     rtscts=False,
-		     dsrdtr=False
-		     )
+	try:
+		print("opening " + opts["device_filename"])
+	#	port.open()
+	except serial.SerialException as e:
+		pprint(e)
+		exit(-3)
 
-try:
-	print("opening " + opts["device_filename"])
-#	port.open()
-except serial.SerialException as e:
-	pprint(e)
-	exit(-3)
-
-if not port.isOpen():
-	print("Can't open " + opts["device_filename"])
-	exit(-2)
+	if not port.isOpen():
+		print("Can't open " + opts["device_filename"])
+		exit(-2)
 
 
 
 def delta_write():
 #	pprint(delta_current_pwm)
 	cmd = "%df%dg%dh" % delta_current_pwm
-	port.write(bytes(cmd, 'UTF-8'))
+	if opts["device_filename"]:
+		port.write(bytes(cmd, 'UTF-8'))
 
 
 
@@ -381,7 +399,7 @@ def update():
 
 	work_current_point = point_bounds(work_current_point)
 	delta_current_point = convert_point(work_current_point)
-	delta_current_angles = point2angles(delta_current_point)
+	point2angles(delta_current_point)
 	delta_current_pwm = angles2duty(delta_current_angles)
 
 	affector_graphics_pos = work2graphics((work_current_point.x, work_current_point.y))
@@ -447,8 +465,8 @@ while running:
 
 
 
-
-port.close()
+if opts["device_filename"]:
+	port.close()
 
 
 
