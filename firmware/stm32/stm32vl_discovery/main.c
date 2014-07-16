@@ -165,6 +165,12 @@ int i2str (char* b, int i, int base, int field)
 	return len;
 }
 
+char tmp_num_str_buffer[32];
+const char* numstr (int a) {
+	i2str(tmp_num_str_buffer, a, 10, sizeof(tmp_num_str_buffer));
+	return tmp_num_str_buffer;
+}
+
 #define USART_NUMBER 3
 #define USART_BUFF_SIZE	256
 
@@ -257,8 +263,8 @@ typedef struct delta_model {
 } delta_model_t;
 
 delta_model_t delta = {
-		.pwm_enabled = {0, 0, 0},
-		.pwm_duty = {0, 0, 0}
+		.pwm_enabled = {1, 1, 1},
+		.pwm_duty = {1400, 1400, 1400}
 };
 
 void servo_pwm_timer_init (void)
@@ -530,10 +536,14 @@ int cmd_exec (int argc, const char* argv[], usart_t* term)
 
 		if (!strcmp(argv[1], "state")) {
 			for (int i = 0; i < 3; i++) {
-				term_putstr(term, "servo pwm #x ");
+				term_putstr(term, "servo pwm #");
+				term_putstr(term, numstr(i));
 				term_putstr(term, delta.pwm_enabled[i] ? "enabled" : "disabled");
+				term_putstr(term, ", duty=");
+				term_putstr(term, numstr(delta.pwm_duty[i]));
 				term_putstr(term, "\n");
 			}
+			return 0;
 		}
 		if (!strcmp(argv[1], "en") && argc == 5) {
 
@@ -542,18 +552,27 @@ int cmd_exec (int argc, const char* argv[], usart_t* term)
 				delta.pwm_enabled[i] = enable;
 			}
 			servo_sync_pwm();
+			return 0;
 		}
 		if (!strcmp(argv[1], "duty") && argc == 5) {
+
+			static int blink_led_state = 0;
 
 			for (int i = 0; i < 3; i++) {
 				uint16_t duty = strtol(argv[2+i], 0, 0);
 				delta.pwm_duty[i] = duty;
+
+				if (blink_led_state)
+					led_num(i);
 			}
+			blink_led_state = !blink_led_state;
+
 			servo_sync_pwm();
+			return 0;
 		}
 
 
-		return 0;
+		return 1;
 	}
 
 	return 1;
