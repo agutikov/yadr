@@ -8,7 +8,7 @@ LD=$(CROSS_PREFIX)ld
 
 ARCH_FLAGS= -mcpu=cortex-m3 -mlittle-endian -mthumb
 
-CFLAGS=-std=gnu99 -ffreestanding
+CFLAGS=-std=gnu99 -ffreestanding -nostdlib
 # -nostdlib -nostdinc
 CFLAGS+=-ggdb -O0
 # CFLAGS+=-O2
