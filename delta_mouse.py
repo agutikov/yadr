@@ -463,13 +463,13 @@ while running:
 		if event.type == pygame.MOUSEBUTTONDOWN and event.button == 4:
 			# wheel up
 			if delta_active:
-				work_current_point.z += 1
+				work_current_point.z -= 1
 				update()
 
 		if event.type == pygame.MOUSEBUTTONDOWN and event.button == 5:
 			# wheel down
 			if delta_active:
-				work_current_point.z -= 1
+				work_current_point.z += 1
 				update()
 
 
