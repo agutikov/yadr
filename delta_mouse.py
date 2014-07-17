@@ -310,7 +310,8 @@ pprint(delta_current_pwm)
 
 if opts["device_filename"]:
 	port = serial.Serial(port=opts["device_filename"],
-			baudrate=19200,
+#			baudrate=19200, # arduino
+			baudrate=115200, # stm32vl discovery
 			timeout=0,
 			bytesize=serial.EIGHTBITS,
 			parity=serial.PARITY_NONE,
@@ -335,9 +336,12 @@ if opts["device_filename"]:
 
 def delta_write():
 #	pprint(delta_current_pwm)
-	cmd = "%df%dg%dh" % delta_current_pwm
+#	cmd = "%df%dg%dh" % delta_current_pwm
+	cmd = "pwm duty %d %d %d\n" % delta_current_pwm
+#	pprint(cmd)
 	if opts["device_filename"]:
 		port.write(bytes(cmd, 'UTF-8'))
+#		pprint(port.read())
 
 
 
