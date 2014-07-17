@@ -338,7 +338,7 @@ if opts["device_filename"]:
 def delta_write():
 #	pprint(delta_current_pwm)
 #	cmd = "%df%dg%dh" % delta_current_pwm
-	cmd = "pwm duty %d %d %d\n" % delta_current_pwm
+	cmd = "pwm duty %d %d %d\r" % delta_current_pwm
 #	pprint(cmd)
 	if opts["device_filename"]:
 		port.write(bytes(cmd, 'UTF-8'))
