@@ -360,11 +360,11 @@ GREEN = pygame.Color(0, 255, 0, 255)
 RED = pygame.Color(255, 0, 0, 255)
 BLUE = pygame.Color(0, 0, 255, 255)
 
-window = (640, 480)
+window = (800, 600)
 W = pygame.display.set_mode(window)
 S = pygame.Surface(window, pygame.SRCALPHA)
 
-margin = 30
+margin = 100
 field_R = int(window[1]/2) - margin
 
 graphics_delta_scale = field_R / work_R
