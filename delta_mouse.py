@@ -177,14 +177,18 @@ kinematics = delta_kinematics(120, 50, 130, 320)
 
 angle_max = 60
 angle_min = -60
+angle_1 = 15
+angle_2 = 0
 
 center = point(kinematics.delta_calcForward(0, 0, 0)[1:])
 top = point(kinematics.delta_calcForward(angle_min, angle_min, angle_min)[1:])
 bottom = point(kinematics.delta_calcForward(angle_max, angle_max, angle_max)[1:])
+
 high_triangle = list(map(lambda t: point(kinematics.delta_calcForward(t[0], t[1], t[2])[1:]),
-		[(angle_max, angle_min, angle_min), (angle_min, angle_max, angle_min), (angle_min, angle_min, angle_max)]))
+		[(angle_1, angle_min, angle_min), (angle_min, angle_1, angle_min), (angle_min, angle_min, angle_1)]))
+
 low_triangle = list(map(lambda t: point(kinematics.delta_calcForward(t[0], t[1], t[2])[1:]),
-		[(angle_min, angle_max, angle_max), (angle_max, angle_min, angle_max), (angle_max, angle_max, angle_min)]))
+		[(angle_2, angle_max, angle_max), (angle_max, angle_2, angle_max), (angle_max, angle_max, angle_2)]))
 
 '''
 pprint("center:", center.tuple())
@@ -202,10 +206,16 @@ high_r = int(math.sqrt(high_triangle[0].x**2 + high_triangle[0].y**2))
 low_r = int(math.sqrt(low_triangle[0].x**2 + low_triangle[0].y**2))
 # print(height, deep, high_r, low_r)
 
+calculated_work_area = False
 # work area
-work_R = min(high_r, low_r)
-work_bootom = low_triangle[0].z
-work_H = high_triangle[0].z - work_bootom
+if calculated_work_area:
+	work_R = min(high_r, low_r)
+	work_bootom = low_triangle[0].z
+	work_H = high_triangle[0].z - work_bootom
+else:
+	work_R = 150
+	work_bootom = -300
+	work_H = 200
 print("Work area: r=%d, floor=%d, h=%d" % (work_R, work_bootom, work_H))
 
 # starting point in work coordinates
