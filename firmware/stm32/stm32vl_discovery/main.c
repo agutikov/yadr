@@ -161,18 +161,23 @@ int i2str (char* b, int i, int base, int field)
 		while (--f)
 			*--b = '0';
 	}
+	*--b = '0';
 
 	return len;
 }
 
 char tmp_num_str_buffer[32];
 const char* numstr (int a) {
-	i2str(tmp_num_str_buffer, a, 10, sizeof(tmp_num_str_buffer));
+	i2str(tmp_num_str_buffer, a, 10, 0);
+	return tmp_num_str_buffer;
+}
+const char* hexstr (int a) {
+	i2str(tmp_num_str_buffer, a, 16, 2);
 	return tmp_num_str_buffer;
 }
 
 #define USART_NUMBER 3
-#define USART_BUFF_SIZE	256
+#define USART_BUFF_SIZE	512
 
 uint8_t usart_buffers[2][USART_BUFF_SIZE];
 usart_t usart_device;
@@ -395,9 +400,7 @@ void servo_sync_pwm (void)
 	}
 
 	// next - set new duty
-	TIM_SetCompare1(TIM3, delta.pwm_duty[0]);
-	TIM_SetCompare1(TIM3, delta.pwm_duty[1]);
-	TIM_SetCompare1(TIM3, delta.pwm_duty[2]);
+	servo_set_all_pwm_duty(delta.pwm_duty[0], delta.pwm_duty[1], delta.pwm_duty[2]);
 
 	// last - enable
 	for (int i = 0; i < 3; i++) {
@@ -497,6 +500,9 @@ void test_all_pwm ()
 	}
 }
 
+char dbg_buffer [512] = {0};
+int dbg_len = 0;
+
 int cmd_exec (int argc, const char* argv[], usart_t* term)
 {
 	if (!strcmp(argv[0], "help") || argv[0][0] == '?' || argv[0][0] == 'h') {
@@ -531,14 +537,26 @@ int cmd_exec (int argc, const char* argv[], usart_t* term)
 		test_all_pwm();
 		return 0;
 	}
-
+#if DBG_TERM
+	if (!strcmp(argv[0], "dbg")) {
+		for (int i = 0; i < dbg_len; i++) {
+			term_putstr(term, hexstr(dbg_buffer[i]));
+			term_putstr(term, " ");
+			if (((i+1) % 16) == 0) {
+				term_putstr(term, "\n");
+			}
+		}
+		term_putstr(term, "\n");
+		return 0;
+	}
+#endif
 	if (!strcmp(argv[0], "pwm") && argc > 1) {
 
 		if (!strcmp(argv[1], "state")) {
 			for (int i = 0; i < 3; i++) {
 				term_putstr(term, "servo pwm #");
 				term_putstr(term, numstr(i));
-				term_putstr(term, delta.pwm_enabled[i] ? "enabled" : "disabled");
+				term_putstr(term, delta.pwm_enabled[i] ? " enabled" : " disabled");
 				term_putstr(term, ", duty=");
 				term_putstr(term, numstr(delta.pwm_duty[i]));
 				term_putstr(term, "\n");
@@ -605,7 +623,13 @@ void main( void )
 	while (1) {
 
 		recv = term_getline(usart_1, cmd_buffer, sizeof(cmd_buffer));
-
+#if DBG_TERM
+		if (dbg_len + recv < sizeof(dbg_buffer)) {
+			memcpy(&dbg_buffer[dbg_len], cmd_buffer, recv);
+			dbg_len += recv;
+			dbg_buffer[dbg_len] = 0;
+		}
+#endif
 		if (recv > 0) {
 
 			if (cmd_buffer[0] != LF) {
