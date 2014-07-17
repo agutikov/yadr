@@ -7,6 +7,7 @@ from time import sleep
 from pprint import pprint
 from optparse import OptionParser
 import pygame
+# import pygame.freetype
 import math
 import serial
 
@@ -348,10 +349,13 @@ def delta_write():
 delta_active = False
 
 
-font_size = 24
+font_size = 12
 pygame.init()
+# pygame.freetype.init()
 pygame.font.init()
-font = pygame.font.SysFont("LiberationMono-Regular", font_size)
+# font = pygame.freetype.SysFont("LiberationMono-Regular", font_size)
+# font = pygame.font.SysFont("LiberationMono-Regular", font_size)
+font = pygame.font.SysFont("DejaVuSansMono", font_size)
 
 BLACK = pygame.Color(0,0,0, 255)
 WHITE = pygame.Color(255, 255, 255, 255)
@@ -394,12 +398,28 @@ def render ():
 	W.blit(S, (0, 0))
 
 	text = []
-	text.append("work: %4d %4d %4d" % (work_current_point.x, work_current_point.y, work_current_point.z))
-	text.append("delta: %4d %4d %4d" % (delta_current_point.x, delta_current_point.y, delta_current_point.z))
-	text.append("angle: %4d %4d %4d" % delta_current_angles)
-	text.append("pwm: %4d %4d %4d" % delta_current_pwm)
+	text.append("virtual workarea (mm):")
+	text.append("x=%5d" % work_current_point.x)
+	text.append("y=%5d" % work_current_point.y)
+	text.append("z=%5d" % work_current_point.z)
+	text.append("")
+	text.append("delta workarea (mm):")
+	text.append("x=%5d" % delta_current_point.x)
+	text.append("y=%5d" % delta_current_point.y)
+	text.append("z=%5d" % delta_current_point.z)
+	text.append("")
+	text.append("delta arm angles (degree):")
+	text.append("a=%5d" % delta_current_angles[0])
+	text.append("b=%5d" % delta_current_angles[1])
+	text.append("c=%5d" % delta_current_angles[2])
+	text.append("")
+	text.append("pwm (us / 20ms):")
+	text.append("servo #1: %5d" % delta_current_pwm[0])
+	text.append("servo #1: %5d" % delta_current_pwm[1])
+	text.append("servo #1: %5d" % delta_current_pwm[2])
 	for idx, s in enumerate(text):
-		label = font.render(s, 1, GREEN)
+#		label = font.render(s, fgcolor=BLACK)
+		label = font.render(s, True, BLACK)
 		W.blit(label, (10, 10 + idx*font_size))
 
 	pygame.display.update()
