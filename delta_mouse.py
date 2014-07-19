@@ -338,6 +338,8 @@ if opts["device_filename"]:
 def delta_write():
 #	pprint(delta_current_pwm)
 #	cmd = "%df%dg%dh" % delta_current_pwm
+	# for stm32 usart terminal implementation send CR byte
+	# minicom works because it opens serial port in terminal mode
 	cmd = "pwm duty %d %d %d\r" % delta_current_pwm
 #	pprint(cmd)
 	if opts["device_filename"]:

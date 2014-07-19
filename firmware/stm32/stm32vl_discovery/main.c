@@ -23,7 +23,7 @@
 
 #include "usart.h"
 
-
+#define DBG_TERM 0
 /*
  * Convert a string to a long integer.
  *
@@ -503,11 +503,16 @@ void test_all_pwm ()
 char dbg_buffer [512] = {0};
 int dbg_len = 0;
 
+int pwm_duty_count = 0;
+
 int cmd_exec (int argc, const char* argv[], usart_t* term)
 {
 	if (!strcmp(argv[0], "help") || argv[0][0] == '?' || argv[0][0] == 'h') {
 		term_putstr(term, help);
 		return 0;
+	}
+	if (!strcmp(argv[0], "reset")) {
+		reset_isr();
 	}
 
 	if (!strcmp(argv[0], "start")) {
@@ -535,6 +540,11 @@ int cmd_exec (int argc, const char* argv[], usart_t* term)
 	}
 	if (!strcmp(argv[0], "test_all")) {
 		test_all_pwm();
+		return 0;
+	}
+	if (!strcmp(argv[0], "led") && argc == 2) {
+		int num = strtol(argv[1], 0, 0);
+		led_num(num);
 		return 0;
 	}
 #if DBG_TERM
@@ -574,16 +584,11 @@ int cmd_exec (int argc, const char* argv[], usart_t* term)
 		}
 		if (!strcmp(argv[1], "duty") && argc == 5) {
 
-			static int blink_led_state = 0;
-
 			for (int i = 0; i < 3; i++) {
 				uint16_t duty = strtol(argv[2+i], 0, 0);
 				delta.pwm_duty[i] = duty;
-
-				if (blink_led_state)
-					led_num(i);
 			}
-			blink_led_state = !blink_led_state;
+			led_num(pwm_duty_count++);
 
 			servo_sync_pwm();
 			return 0;
