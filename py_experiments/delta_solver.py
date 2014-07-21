@@ -357,5 +357,74 @@ pprint(z_sol_real)
 
 
 
+B = 120.0
+LB = 130.0
+F = 50.0
+LF = 320.0
+
+print("\n\nsubstitude b, lb, f and lf")
+x_sol_theta = x_sol_real.subs(b, B).subs(lb, LB).subs(f, F).subs(lf, LF)
+y_sol_theta = y_sol_real.subs(b, B).subs(lb, LB).subs(f, F).subs(lf, LF)
+z_sol_theta = z_sol_real.subs(b, B).subs(lb, LB).subs(f, F).subs(lf, LF)
+
+print("\n\nX =")
+pprint(x_sol_theta)
+print("\n\nY =")
+pprint(y_sol_theta)
+print("\n\nZ =")
+pprint(z_sol_theta)
+
+# TODO:
+# экпортнуть решение
+
+# TODO:
+# зафиксировать одно плечо в нижней точке
+# посчитать два других угла для заданной высоты
+# найти радиус
+# зафиксировать два плеча в нижней точке
+# посчитать оставшийся угол на заданной высоте
+# найти радиус
+# построить два треугольника
+# вписать окружность
+
+
+
+quit()
+
+
+theta_range = [-pi/3, -pi/4, -pi/6, -pi/12, 0, pi/12, pi/6, pi/4, pi/3]
+
+
+for th1 in theta_range:
+	for th2 in theta_range:
+		for th3 in theta_range:
+			print("\n\nX =")
+			pprint(x_sol_theta.evalf(subs={theta1: th1, theta2: th2, theta3: th3}))
+			print("\n\nY =")
+			pprint(y_sol_theta.evalf(subs={theta1: th1, theta2: th2, theta3: th3}))
+			print("\n\nZ =")
+			pprint(z_sol_theta.evalf(subs={theta1: th1, theta2: th2, theta3: th3}))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
