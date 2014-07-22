@@ -327,28 +327,65 @@ def delta_write():
 if opts["run_test"]:
 	print("Start test")
 
-	delta_update()
-	delta_write()
-	time.sleep(1)
-
-	for z in reversed(range(15, work_current_point.z, 2)):
-		work_current_point.z = z
+	if len(args) == 0:
 		delta_update()
 		delta_write()
-		time.sleep(0.1)
+		time.sleep(1)
 
-	for r in range(10, 150, 20):
-		n = r*3
-		for p in range(0, n+1):
-			phi = 2*pi*p/n
-			x = r*cos(phi)
-			y = r*sin(phi)
-			work_current_point.x = x
-			work_current_point.y = y
-			print(x, y)
+		for z in reversed(range(15, work_current_point.z, 2)):
+			work_current_point.z = z
 			delta_update()
 			delta_write()
-			time.sleep(2/r)
+			time.sleep(0.1)
+
+		for r in range(10, 150, 20):
+			n = r*3
+			for p in range(0, n+1):
+				phi = 2*pi*p/n
+				x = r*cos(phi)
+				y = r*sin(phi)
+				work_current_point.x = x
+				work_current_point.y = y
+				print(x, y)
+				delta_update()
+				delta_write()
+				time.sleep(2/r)
+
+	elif args[0] == "dots":
+
+		def do_dot(h):
+			home_z = int(work_current_point.z)
+			for z in reversed(range(h, home_z+2, 2)):
+				work_current_point.z = z
+				delta_update()
+				delta_write()
+				time.sleep(0.2)
+			for z in range(h, home_z+2, 2):
+				work_current_point.z = z
+				delta_update()
+				delta_write()
+				time.sleep(0.2)
+
+		delta_update()
+		delta_write()
+		time.sleep(1)
+
+		for z in reversed(range(30, work_current_point.z, 2)):
+			work_current_point.z = z
+			delta_update()
+			delta_write()
+			time.sleep(0.1)
+
+		for x in range(-50, 60, 10):
+			for y in range(-50, 60, 10):
+				work_current_point.x = x
+				work_current_point.y = y
+				print(x, y)
+				delta_update()
+				delta_write()
+				time.sleep(0.2)
+				do_dot(int(15 - (x + 100)/20))
+
 
 
 	print("Stop test")
