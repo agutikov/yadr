@@ -3,12 +3,12 @@
 import sys
 import os
 import io
-from time import sleep
+import time
 from pprint import pprint
 from optparse import OptionParser
 import pygame
 # import pygame.freetype
-import math
+from math import *
 import serial
 
 # TODO: config file woth delta settings: base and affecrot radius, arm and delta length, foreach servo: start pwm, angle coefficient, max and min angles
@@ -24,6 +24,10 @@ opt_parser.add_option('-D', '--device',
 		      help="Serial port device file.",
 		      action='store', type="string", dest="device_filename")
 
+opt_parser.add_option("-t", "--test",
+                  action="store_true", dest="run_test", default=False,
+                  help="just run buit-in test")
+
 opt_values, args = opt_parser.parse_args()
 
 opts = vars(opt_values)
@@ -36,14 +40,14 @@ class delta_kinematics:
 # http://forums.trossenrobotics.com/tutorials/introduction-129/delta-robot-kinematics-3276/
 
 	# trigonometric constants
-	sqrt3 = math.sqrt(3.0)
+	sqrt3 = sqrt(3.0)
 	sin120 = sqrt3/2.0
 	cos120 = -0.5
 	tan60 = sqrt3
 	sin30 = 0.5
 	tan30 = 1/sqrt3
 
-	dtr = math.pi/180.0
+	dtr = pi/180.0
 
 	def __init__(self, r_base, r_aff, l_arm, l_delta):
 		self.e = 2*self.sqrt3*r_aff     # end effector
@@ -61,16 +65,16 @@ class delta_kinematics:
 		theta2 *= self.dtr
 		theta3 *= self.dtr
 
-		y1 = -(self.t + self.rf*math.cos(theta1))
-		z1 = -self.rf*math.sin(theta1)
+		y1 = -(self.t + self.rf*cos(theta1))
+		z1 = -self.rf*sin(theta1)
 
-		y2 = (self.t + self.rf*math.cos(theta2))*self.sin30
+		y2 = (self.t + self.rf*cos(theta2))*self.sin30
 		x2 = y2*self.tan60
-		z2 = -self.rf*math.sin(theta2)
+		z2 = -self.rf*sin(theta2)
 
-		y3 = (self.t + self.rf*math.cos(theta3))*self.sin30
+		y3 = (self.t + self.rf*cos(theta3))*self.sin30
 		x3 = -y3*self.tan60
-		z3 = -self.rf*math.sin(theta3)
+		z3 = -self.rf*sin(theta3)
 
 		dnm = (y2-y1)*x3-(y3-y1)*x2
 
@@ -96,7 +100,7 @@ class delta_kinematics:
 		if d < 0:
 			return (False, 0,0,0) # non-existing point
 
-		z0 = -0.5*(b+math.sqrt(d))/a
+		z0 = -0.5*(b+sqrt(d))/a
 		x0 = (a1*z0 + b1)/dnm
 		y0 = (a2*z0 + b2)/dnm
 
@@ -119,10 +123,10 @@ class delta_kinematics:
 		if d < 0:
 			return (False, 0) # non-existing point
 
-		yj = (y1 - a*b - math.sqrt(d))/(b*b + 1) # choosing outer point
+		yj = (y1 - a*b - sqrt(d))/(b*b + 1) # choosing outer point
 		zj = a + b*yj
 
-		theta = 180.0*math.atan(-zj/(y1 - yj))/math.pi + (180.0 if yj>y1 else 0.0)
+		theta = 180.0*atan(-zj/(y1 - yj))/pi + (180.0 if yj>y1 else 0.0)
 
 		return (True, theta)
 
@@ -160,7 +164,7 @@ class point:
 		return self.x*b.x + self.y*b.y
 
 	def norm_xy (self):
-		s = math.sqrt(self.scal_xy(self))
+		s = sqrt(self.scal_xy(self))
 		if s != 0:
 			self.x /= s
 			self.y /= s
@@ -174,53 +178,18 @@ class point:
 
 
 
-kinematics = delta_kinematics(120, 50, 130, 320)
+kinematics = delta_kinematics(120, 35, 125, 325)
 
 angle_max = 60
 angle_min = -60
-angle_1 = 15
-angle_2 = 0
 
-center = point(kinematics.delta_calcForward(0, 0, 0)[1:])
-top = point(kinematics.delta_calcForward(angle_min, angle_min, angle_min)[1:])
-bottom = point(kinematics.delta_calcForward(angle_max, angle_max, angle_max)[1:])
-
-high_triangle = list(map(lambda t: point(kinematics.delta_calcForward(t[0], t[1], t[2])[1:]),
-		[(angle_1, angle_min, angle_min), (angle_min, angle_1, angle_min), (angle_min, angle_min, angle_1)]))
-
-low_triangle = list(map(lambda t: point(kinematics.delta_calcForward(t[0], t[1], t[2])[1:]),
-		[(angle_2, angle_max, angle_max), (angle_max, angle_2, angle_max), (angle_max, angle_max, angle_2)]))
-
-'''
-pprint("center:", center.tuple())
-pprint("top:", top.tuple())
-pprint("bottom:", bottom.tuple())
-for p in high_triangle:
-	pprint(p.tuple())
-for p in low_triangle:
-	pprint(p.tuple())
-'''
-
-height = top.z - center.z
-deep = center.z - bottom.z
-high_r = int(math.sqrt(high_triangle[0].x**2 + high_triangle[0].y**2))
-low_r = int(math.sqrt(low_triangle[0].x**2 + low_triangle[0].y**2))
-# print(height, deep, high_r, low_r)
-
-calculated_work_area = False
-# work area
-if calculated_work_area:
-	work_R = min(high_r, low_r)
-	work_bootom = low_triangle[0].z
-	work_H = high_triangle[0].z - work_bootom
-else:
-	work_R = 150
-	work_bootom = -300
-	work_H = 200
+work_R = 120
+work_bootom = -350
+work_H = 200
 print("Work area: r=%d, floor=%d, h=%d" % (work_R, work_bootom, work_H))
 
 # starting point in work coordinates
-work_start = point((0, 0, 10))
+work_start = point((0, 0, 100))
 
 # convert coordinates from working into delta (shift start down to work_bootom)
 def convert_point (p):
@@ -241,15 +210,15 @@ def point_bounds (p):
 #		result.y = sign(result.y) * (work_R-1)
 
 	if (result.x**2 + result.y**2) > work_R**2 :
-#		result.x = sign(result.x)*int(math.sqrt(work_R**2 - result.y**2))
+#		result.x = sign(result.x)*int(sqrt(work_R**2 - result.y**2))
 		result.norm_xy()
 		result.mul_xy(work_R)
 
 	return result
 
 
-duty_centers = [1420, 1420, 1420]
-duty_multipy = [5, 5, 5]
+duty_centers = [1400, 1500, 1500]
+duty_multipy = [10, 10, 10]
 
 # convert angles into pwm duty cycle length in microseconds
 def angles2duty (a_t):
@@ -299,6 +268,15 @@ def delta_reset():
 
 delta_reset()
 
+def delta_update():
+	global work_current_point
+	global delta_current_point
+	global delta_current_pwm
+	work_current_point = point_bounds(work_current_point)
+	delta_current_point = convert_point(work_current_point)
+	point2angles(delta_current_point)
+	delta_current_pwm = angles2duty(delta_current_angles)
+
 print("work start point:")
 pprint(work_current_point.tuple())
 print("delta start point:")
@@ -346,157 +324,182 @@ def delta_write():
 		port.write(bytes(cmd, 'UTF-8'))
 #		pprint(port.read())
 
+if opts["run_test"]:
+	print("Start test")
+
+	delta_update()
+	delta_write()
+	time.sleep(1)
+
+	for z in reversed(range(15, work_current_point.z, 2)):
+		work_current_point.z = z
+		delta_update()
+		delta_write()
+		time.sleep(0.1)
+
+	for r in range(10, 150, 20):
+		n = r*3
+		for p in range(0, n+1):
+			phi = 2*pi*p/n
+			x = r*cos(phi)
+			y = r*sin(phi)
+			work_current_point.x = x
+			work_current_point.y = y
+			print(x, y)
+			delta_update()
+			delta_write()
+			time.sleep(2/r)
 
 
-delta_active = False
+	print("Stop test")
+else:
+
+	delta_active = False
 
 
-font_size = 12
-pygame.init()
-# pygame.freetype.init()
-pygame.font.init()
-# font = pygame.freetype.SysFont("LiberationMono-Regular", font_size)
-# font = pygame.font.SysFont("LiberationMono-Regular", font_size)
-font = pygame.font.SysFont("DejaVuSansMono", font_size)
+	font_size = 12
+	pygame.init()
+	# pygame.freetype.init()
+	pygame.font.init()
+	# font = pygame.freetype.SysFont("LiberationMono-Regular", font_size)
+	# font = pygame.font.SysFont("LiberationMono-Regular", font_size)
+	font = pygame.font.SysFont("DejaVuSansMono", font_size)
 
-BLACK = pygame.Color(0,0,0, 255)
-WHITE = pygame.Color(255, 255, 255, 255)
-GRAY = pygame.Color(150,150,150, 255)
-GREEN = pygame.Color(0, 255, 0, 255)
-RED = pygame.Color(255, 0, 0, 255)
-BLUE = pygame.Color(0, 0, 255, 255)
+	BLACK = pygame.Color(0,0,0, 255)
+	WHITE = pygame.Color(255, 255, 255, 255)
+	GRAY = pygame.Color(150,150,150, 255)
+	GREEN = pygame.Color(0, 255, 0, 255)
+	RED = pygame.Color(255, 0, 0, 255)
+	BLUE = pygame.Color(0, 0, 255, 255)
 
-window = (800, 600)
-W = pygame.display.set_mode(window)
-S = pygame.Surface(window, pygame.SRCALPHA)
+	window = (800, 600)
+	W = pygame.display.set_mode(window)
+	S = pygame.Surface(window, pygame.SRCALPHA)
 
-margin = 100
-field_R = int(window[1]/2) - margin
+	margin = 100
+	field_R = int(window[1]/2) - margin
 
-graphics_delta_scale = field_R / work_R
+	graphics_delta_scale = field_R / work_R
 
-margin = int(window[1]/2) - field_R
-field_center = (window[0] - field_R - margin, int(window[1]/2))
+	margin = int(window[1]/2) - field_R
+	field_center = (window[0] - field_R - margin, int(window[1]/2))
 
-def graphics2work (pos):
-	return (int((pos[0] - field_center[0]) / graphics_delta_scale), int((pos[1] - field_center[1]) / graphics_delta_scale))
+	def graphics2work (pos):
+		return (int((pos[0] - field_center[0]) / graphics_delta_scale), int((pos[1] - field_center[1]) / graphics_delta_scale))
 
-def work2graphics (pos):
-	return (int(pos[0] * graphics_delta_scale) + field_center[0],
-		int(pos[1] * graphics_delta_scale) + field_center[1])
-
-affector_graphics_pos = work2graphics((work_current_point.x, work_current_point.y))
-
-def render ():
-	S.fill(GRAY)
-
-	if delta_active:
-		pygame.draw.circle(S, WHITE, field_center, field_R)
-	else:
-		pygame.draw.circle(S, BLACK, field_center, field_R)
-
-	pygame.draw.rect(S, GREEN, (affector_graphics_pos[0]-10, affector_graphics_pos[1]-10, 20, 20))
-
-	W.blit(S, (0, 0))
-
-	text = []
-	text.append("virtual workarea (mm):")
-	text.append("x=%5d" % work_current_point.x)
-	text.append("y=%5d" % work_current_point.y)
-	text.append("z=%5d" % work_current_point.z)
-	text.append("")
-	text.append("delta workarea (mm):")
-	text.append("x=%5d" % delta_current_point.x)
-	text.append("y=%5d" % delta_current_point.y)
-	text.append("z=%5d" % delta_current_point.z)
-	text.append("")
-	text.append("delta arm angles (degree):")
-	text.append("a=%5d" % delta_current_angles[0])
-	text.append("b=%5d" % delta_current_angles[1])
-	text.append("c=%5d" % delta_current_angles[2])
-	text.append("")
-	text.append("pwm (us / 20ms):")
-	text.append("servo #1: %5d" % delta_current_pwm[0])
-	text.append("servo #1: %5d" % delta_current_pwm[1])
-	text.append("servo #1: %5d" % delta_current_pwm[2])
-	for idx, s in enumerate(text):
-#		label = font.render(s, fgcolor=BLACK)
-		label = font.render(s, True, BLACK)
-		W.blit(label, (10, 10 + idx*font_size))
-
-	pygame.display.update()
-
-def update():
-	global work_current_point
-	global delta_current_point
-	global delta_current_angles
-	global delta_current_pwm
-	global affector_graphics_pos
-
-	work_current_point = point_bounds(work_current_point)
-	delta_current_point = convert_point(work_current_point)
-	point2angles(delta_current_point)
-	delta_current_pwm = angles2duty(delta_current_angles)
+	def work2graphics (pos):
+		return (int(pos[0] * graphics_delta_scale) + field_center[0],
+			int(pos[1] * graphics_delta_scale) + field_center[1])
 
 	affector_graphics_pos = work2graphics((work_current_point.x, work_current_point.y))
-	delta_write()
 
-running = True
+	def render ():
+		S.fill(GRAY)
 
-# move event -> new position -> count angles -> count pwm and write -> count back coordinates -> draw
+		if delta_active:
+			pygame.draw.circle(S, WHITE, field_center, field_R)
+		else:
+			pygame.draw.circle(S, BLACK, field_center, field_R)
 
-update()
+		pygame.draw.rect(S, GREEN, (affector_graphics_pos[0]-10, affector_graphics_pos[1]-10, 20, 20))
 
-while running:
-	for event in pygame.event.get():
+		W.blit(S, (0, 0))
 
-		if event.type == pygame.QUIT:
-			running = False
+		text = []
+		text.append("virtual workarea (mm):")
+		text.append("x=%5d" % work_current_point.x)
+		text.append("y=%5d" % work_current_point.y)
+		text.append("z=%5d" % work_current_point.z)
+		text.append("")
+		text.append("delta workarea (mm):")
+		text.append("x=%5d" % delta_current_point.x)
+		text.append("y=%5d" % delta_current_point.y)
+		text.append("z=%5d" % delta_current_point.z)
+		text.append("")
+		text.append("delta arm angles (degree):")
+		text.append("a=%5d" % delta_current_angles[0])
+		text.append("b=%5d" % delta_current_angles[1])
+		text.append("c=%5d" % delta_current_angles[2])
+		text.append("")
+		text.append("pwm (us / 20ms):")
+		text.append("servo #1: %5d" % delta_current_pwm[0])
+		text.append("servo #1: %5d" % delta_current_pwm[1])
+		text.append("servo #1: %5d" % delta_current_pwm[2])
+		for idx, s in enumerate(text):
+	#		label = font.render(s, fgcolor=BLACK)
+			label = font.render(s, True, BLACK)
+			W.blit(label, (10, 10 + idx*font_size))
 
-		if event.type == pygame.MOUSEMOTION:
-			if delta_active:
-				work_pos = graphics2work(event.pos)
-				work_current_point.x = work_pos[0]
-				work_current_point.y = work_pos[1]
-				update()
+		pygame.display.update()
 
-		if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-			if delta_active:
-				work_current_point.z -= 5
-				update()
-				sleep(0.1)
-				work_current_point.z += 5
-				update()
+	def update():
+		global work_current_point
+		global affector_graphics_pos
 
-		if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
-			if delta_active:
-				delta_active = False
-				delta_reset()
-				affector_graphics_pos = work2graphics((work_current_point.x, work_current_point.y))
-				delta_write()
-			else:
-				delta_active = True
-				work_pos = graphics2work(event.pos)
-				work_current_point.x = work_pos[0]
-				work_current_point.y = work_pos[1]
-				update()
+		delta_update()
 
+		affector_graphics_pos = work2graphics((work_current_point.x, work_current_point.y))
+		delta_write()
 
-		if event.type == pygame.MOUSEBUTTONDOWN and event.button == 4:
-			# wheel up
-			if delta_active:
-				work_current_point.z -= 1
-				update()
+	running = True
 
-		if event.type == pygame.MOUSEBUTTONDOWN and event.button == 5:
-			# wheel down
-			if delta_active:
-				work_current_point.z += 1
-				update()
+	# move event -> new position -> count angles -> count pwm and write -> count back coordinates -> draw
+
+	update()
 
 
+	while running:
+		for event in pygame.event.get():
 
-	render()
+			if event.type == pygame.QUIT:
+				running = False
+
+			if event.type == pygame.MOUSEMOTION:
+				if delta_active:
+					work_pos = graphics2work(event.pos)
+					work_current_point.x = work_pos[0]
+					work_current_point.y = work_pos[1]
+					update()
+
+			if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+				if delta_active:
+					work_current_point.z -= 10
+					update()
+					time.sleep(0.1)
+					work_current_point.z += 10
+					update()
+
+			if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+				if delta_active:
+					delta_active = False
+					delta_reset()
+					affector_graphics_pos = work2graphics((work_current_point.x, work_current_point.y))
+					delta_write()
+				else:
+					delta_active = True
+					work_pos = graphics2work(event.pos)
+					work_current_point.x = work_pos[0]
+					work_current_point.y = work_pos[1]
+					update()
+
+
+			if event.type == pygame.MOUSEBUTTONDOWN and event.button == 4:
+				# wheel up
+				if delta_active:
+					work_current_point.z -= 2
+					update()
+
+			if event.type == pygame.MOUSEBUTTONDOWN and event.button == 5:
+				# wheel down
+				if delta_active:
+					work_current_point.z += 2
+					update()
+		render()
+
+
+
+
+
 
 
 
