@@ -68,3 +68,37 @@ for idx,s in enumerate(solutions):
 	pprint(s.subs(r1, sqrt(Lf**2 - (z - Lb*sin(theta1))**2)).subs(R1, b-f+Lb*cos(theta1)))
 
 
+
+# cos(theta1)
+c = symbols('c')
+
+# sin(theta1)
+s = symbols('s')
+s = sqrt(1 - c**2)
+
+# b-f
+d = symbols('d')
+
+# уравнение для угла theta1
+# R1 = d + Lb*c
+# r1**2 = Lf**2 - (z - Lb*s)**2
+expr1 = r**2 - 2*r*R1*cos(phi1) + R1**2 - r1**2
+expr2 = expr1.subs(r1, sqrt(Lf**2 - (z - Lb*s)**2)).subs(R1, d + Lb*c)
+expr3 = expr2.expand().simplify().collect(c)
+
+print("\n\nExpression (2) with c = cos(theta):")
+pprint(expr3)
+
+
+
+
+
+
+
+
+
+
+
+
+
+

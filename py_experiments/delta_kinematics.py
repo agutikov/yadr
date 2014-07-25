@@ -5,7 +5,7 @@
 import sys
 import io
 from pprint import pprint
-import math
+from math import *
 
 
 
@@ -17,14 +17,14 @@ re = 232.0
 rf = 112.0
 
 # trigonometric constants
-sqrt3 = math.sqrt(3.0)
+sqrt3 = sqrt(3.0)
 sin120 = sqrt3/2.0
 cos120 = -0.5
 tan60 = sqrt3
 sin30 = 0.5
 tan30 = 1/sqrt3
 
-dtr = math.pi/180.0
+dtr = pi/180.0
 t = (f-e)*tan30/2
 
 # forward kinematics: (theta1, theta2, theta3) -> (x0, y0, z0)
@@ -35,16 +35,16 @@ def delta_calcForward(theta1, theta2, theta3) :
 	theta2 *= dtr
 	theta3 *= dtr
 
-	y1 = -(t + rf*math.cos(theta1))
-	z1 = -rf*math.sin(theta1)
+	y1 = -(t + rf*cos(theta1))
+	z1 = -rf*sin(theta1)
 
-	y2 = (t + rf*math.cos(theta2))*sin30
+	y2 = (t + rf*cos(theta2))*sin30
 	x2 = y2*tan60
-	z2 = -rf*math.sin(theta2)
+	z2 = -rf*sin(theta2)
 
-	y3 = (t + rf*math.cos(theta3))*sin30
+	y3 = (t + rf*cos(theta3))*sin30
 	x3 = -y3*tan60
-	z3 = -rf*math.sin(theta3)
+	z3 = -rf*sin(theta3)
 
 	dnm = (y2-y1)*x3-(y3-y1)*x2
 
@@ -70,7 +70,7 @@ def delta_calcForward(theta1, theta2, theta3) :
 	if d < 0:
 		return (False, 0,0,0) # non-existing point
 
-	z0 = -0.5*(b+math.sqrt(d))/a
+	z0 = -0.5*(b+sqrt(d))/a
 	x0 = (a1*z0 + b1)/dnm
 	y0 = (a2*z0 + b2)/dnm
 
@@ -94,10 +94,10 @@ def delta_calcAngleYZ(x0, y0, z0) :
 	if d < 0:
 		return (False, 0) # non-existing point
 
-	yj = (y1 - a*b - math.sqrt(d))/(b*b + 1) # choosing outer point
+	yj = (y1 - a*b - sqrt(d))/(b*b + 1) # choosing outer point
 	zj = a + b*yj
 
-	theta = 180.0*math.atan(-zj/(y1 - yj))/math.pi + (180.0 if yj>y1 else 0.0)
+	theta = 180.0*atan(-zj/(y1 - yj))/pi + (180.0 if yj>y1 else 0.0)
 
 	return (True, theta)
 
@@ -120,60 +120,41 @@ def delta_calcInverse(x0, y0, z0) :
 
 	return (status, theta1, theta2, theta3)
 
+theta_min = -60
+theta_max = 60
+theta_step = 10
 
 
-# print("  a   b   c   :   x    y    z")
-# print("-----------------------------")
+data = []
 
-rng = list(range(-60, 70, 10))
-irng = list(reversed(rng))
+for theta1 in range(theta_min, theta_max + theta_step, theta_step):
+	for theta2 in range(theta_min, theta_max + theta_step, theta_step):
+		for theta3 in range(theta_min, theta_max + theta_step, theta_step):
+			xyz = delta_calcForward(theta1, theta2, theta3)[1:]
+			data.append(xyz)
 
-a = -60
-b = -60
-
-for a in rng:
-	xyz = delta_calcForward(a, b, b)[1:]
-#	print(("%3d %3d %3d   :" % (a, b, b)) + "%4.1d %4.1d %4.1d" % xyz)
-
-a = 60
-
-for b in rng:
-	xyz = delta_calcForward(a, b, b)[1:]
-#	print(("%3d %3d %3d   :" % (a, b, b)) + "%4.1d %4.1d %4.1d" % xyz)
-
-b = 60
-
-for a in irng:
-	xyz = delta_calcForward(a, b, b)[1:]
-#	print(("%3d %3d %3d   :" % (a, b, b)) + "%4.1d %4.1d %4.1d" % xyz)
-
-a = -60
-
-for b in irng:
-	xyz = delta_calcForward(a, b, b)[1:]
-#	print(("%3d %3d %3d   :" % (a, b, b)) + "%4.1d %4.1d %4.1d" % xyz)
+sorted_data = sorted(data, key=lambda d: d[2])
 
 
-list_all = []
+X = []
+Y = []
+Z = []
 
-start = -60
-stop = 60
-d = 3
-rng = range(start, stop + d, d)
-
-for a in rng:
-	for b in rng:
-		for c in rng:
-			xyz = delta_calcForward(a, b, c)[1:]
-			list_all.append(xyz)
-			# print("%f %f %f" % xyz)
-
-sorted_list = sorted(list_all, key=lambda a: a[2])
-
-for t in sorted_list:
-	print("%f %f %f" % t)
+for d in sorted_data:
+	X.append(d[0])
+	Y.append(d[1])
+	Z.append(d[2])
 
 
+from mpl_toolkits.mplot3d import axes3d
+import matplotlib.pyplot as plt
+
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(X, Y, Z, s=4)
+
+plt.show()
 
 
 
