@@ -1,23 +1,6 @@
 
+include <config.scad>;
 include <lib.scad>;
-
-// ширина промежутка между наружными краями конусов
-delta_width=45;
-
-// диаметр отверстия
-bolt_d = 3;
-bolt_r = bolt_d/2;
-
-// цилиндр
-cyl_w = 5;
-cyl_d = 10;
-cyl_r = cyl_d/2;
-
-// конус
-con_w = 5;
-con_r = bolt_r+1;
-con_d = con_r*2;
-
 
 module mount()
 {

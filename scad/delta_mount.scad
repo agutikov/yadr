@@ -1,5 +1,5 @@
 
-
+include <config.scad>;
 include <delta_mount_module.scad>;
 
 arm_w=5;

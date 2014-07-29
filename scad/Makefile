@@ -1,6 +1,6 @@
 
 
-STL= delta_mount.stl servo_mount.stl effector.stl
+STL= delta_mount.stl servo_mount.stl effector.stl finger_mount.stl finger_fixator.stl
 DXF= base.dxf
 PS= $(DXF:.dxf=.ps)
 

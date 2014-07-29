@@ -1,6 +1,5 @@
 
 
-$fn=36;
 
 
 module true_hole (d=1, L=10)
