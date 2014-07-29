@@ -10,10 +10,11 @@ import pygame
 # import pygame.freetype
 from math import *
 import serial
+import functools
 
 # TODO: config file woth delta settings: base and affecrot radius, arm and delta length, foreach servo: start pwm, angle coefficient, max and min angles
 
-
+# TODO: add polar coordinates
 
 
 usage_text = "Usage: %prog -D <serial_port>\n"
@@ -176,17 +177,115 @@ class point:
 		self.x *= k
 		self.y *= k
 
+B = 120
+F = 35
+LB = 125
+LF = 325
 
-
-kinematics = delta_kinematics(120, 35, 125, 325)
+kinematics = delta_kinematics(B, F, LB, LF)
 
 angle_max = 60
 angle_min = -60
 
-work_R = 120
-work_bootom = -350
-work_H = 200
+work_R = 200
+work_bootom = -390
+work_H = 210
 print("Work area: r=%d, floor=%d, h=%d" % (work_R, work_bootom, work_H))
+
+################################################################################
+
+
+def Ri (b, f, Lb, thetai):
+	return b - f + Lb*cos(thetai)
+
+def ri_p2 (Lf, z, Lb, thetai):
+	return Lf**2 - (z - Lb*sin(thetai))**2
+
+
+def r_solution (b, f, Lb, Lf, thetai, z, phii):
+	D = (Ri(b, f, Lb, thetai)**2)*(cos(phii)**2 - 1) + ri_p2(Lf, z, Lb, thetai)
+	if D >= 0:
+		a = Ri(b, f, Lb, thetai)*cos(phii)
+
+		return [-a - sqrt(D), -a + sqrt(D)]
+	else:
+		return None
+
+
+Alfa = [-pi/2, pi/6, 5*pi/6]
+
+
+def _r_valid (b, f, Lb, Lf, z, phi, r, alfa0):
+
+	valid = 0
+
+	B = (b-f)**2 - 2*r*(b-f) + Lb**2 + r**2 - Lf**2 + z**2
+	C = 2*z*Lb
+
+	for alfa in Alfa:
+		if alfa != alfa0:
+			# у нас есть вектор эффектора - находим радиусы двух других окружностей
+			# и проверяем валидность получившихся соответствующих theta
+			A = 2*(b-f)*Lb - 2*r*Lb*cos(phi + alfa)
+
+			D = C**2 * (A**2 - B**2 + C**2)
+
+			if D >= 0:
+				cos_theta = [
+					(-A*B + sqrt(D))/(A**2 + C**2),
+					-(A*B + sqrt(D))/(A**2 + C**2)
+					]
+				print(r, cos_theta)
+
+				if (cos_theta[0] >= 0 and cos(pi/3) <= cos_theta[0]) or (cos_theta[1] >= 0 and cos(pi/3) <= cos_theta[1]):
+					valid += 1
+
+	print(valid)
+	return valid == 2
+
+
+def r_valid (b, f, Lb, Lf, z, phi, r):
+
+	x = r*cos(phi)
+	y = r*sin(phi)
+
+	result = kinematics.delta_calcInverse(x, y, z)
+
+	return result[0] and abs(result[1]) <= 60 and abs(result[2]) <= 60 and abs(result[3]) <= 60
+
+
+
+# Theta - list of two borders for thetai
+def max_r (b, f, Lb, Lf, z, phi, Theta):
+
+	p_r_values = []
+
+	for theta in Theta:
+
+		for alfa in Alfa:
+			result_p = r_solution(b, f, Lb, Lf, theta, z, phi + alfa)
+			result_n = r_solution(b, f, Lb, Lf, theta, z, phi + alfa + pi)
+
+			if result_p:
+				for r in result_p:
+					if r >= 0 and r_valid(b, f, Lb, Lf, z, phi, r):
+						p_r_values.append(r)
+
+			if result_n:
+				for r in result_n:
+					if r < 0 and r_valid(b, f, Lb, Lf, z, phi, r):
+						p_r_values.append(abs(r))
+
+
+	if len(p_r_values) > 0:
+		return max(p_r_values)
+	else:
+		return None
+
+def Max_R (z, phi):
+	return max_r (B, F, LB, LF, z, phi, [-pi/3, pi/3])
+
+################################################################################
 
 # starting point in work coordinates
 work_start = point((0, 0, 100))
@@ -194,6 +293,9 @@ work_start = point((0, 0, 100))
 # convert coordinates from working into delta (shift start down to work_bootom)
 def convert_point (p):
 	return p + point((0, 0, work_bootom))
+
+def convert_point_back (p):
+	return p - point((0, 0, work_bootom))
 
 def sign (x):
 	return 1 if x >= 0 else -1
@@ -275,6 +377,11 @@ def delta_update():
 	work_current_point = point_bounds(work_current_point)
 	delta_current_point = convert_point(work_current_point)
 	point2angles(delta_current_point)
+
+#	kin = kinematics.delta_calcForward(delta_current_angles[0], delta_current_angles[1], delta_current_angles[2])
+#	delta_current_point = point((kin[1], kin[2], kin[3]))
+#	work_current_point = convert_point_back()
+
 	delta_current_pwm = angles2duty(delta_current_angles)
 
 print("work start point:")
@@ -435,6 +542,18 @@ else:
 
 		if delta_active:
 			pygame.draw.circle(S, WHITE, field_center, field_R)
+			workarea_dots = []
+			for p in range(0, 73):
+				phi = p*pi/36
+				r = Max_R(delta_current_point.z, phi)
+				workarea_dots.append((r*cos(phi) * graphics_delta_scale, r*sin(phi) * graphics_delta_scale))
+
+			for i in range(len(workarea_dots)-1):
+				pygame.draw.line(S, BLUE,
+					(workarea_dots[i][0] + field_center[0], -workarea_dots[i][1] + field_center[1]),
+					(workarea_dots[i+1][0] + field_center[0], -workarea_dots[i+1][1] + field_center[1]),
+					3)
+
 		else:
 			pygame.draw.circle(S, BLACK, field_center, field_R)
 
@@ -474,9 +593,9 @@ else:
 		global affector_graphics_pos
 
 		delta_update()
+		delta_write()
 
 		affector_graphics_pos = work2graphics((work_current_point.x, work_current_point.y))
-		delta_write()
 
 	running = True
 
