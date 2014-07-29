@@ -23,7 +23,7 @@ def r_solution (b, f, Lb, Lf, thetai, z, phii):
 		return None
 
 
-Alfa = [0, -2*pi/3, 2*pi/3]
+Alfa = [-pi/2, pi/6, 5*pi/6]
 
 
 def _r_valid (b, f, Lb, Lf, z, phi, r, alfa0):
@@ -111,20 +111,27 @@ def r_valid (b, f, Lb, Lf, z, phi, r):
 # Theta - list of two borders for thetai
 def max_r (b, f, Lb, Lf, z, phi, Theta):
 
-	r_values = []
+	p_r_values = []
 
 	for theta in Theta:
 
 		for alfa in Alfa:
-			result = r_solution(b, f, Lb, Lf, theta, z, phi + alfa)
+			result_p = r_solution(b, f, Lb, Lf, theta, z, phi + alfa)
+			result_n = r_solution(b, f, Lb, Lf, theta, z, phi + alfa + pi)
 
-			if result:
-				for r in result:
+			if result_p:
+				for r in result_p:
 					if r >= 0 and r_valid(b, f, Lb, Lf, z, phi, r):
-						r_values.append(r)
+						p_r_values.append(r)
 
-	if len(r_values) > 0:
-		return max(r_values)
+			if result_n:
+				for r in result_n:
+					if r < 0 and r_valid(b, f, Lb, Lf, z, phi, r):
+						p_r_values.append(abs(r))
+
+
+	if len(p_r_values) > 0:
+		return max(p_r_values)
 	else:
 		return None
 
@@ -135,30 +142,35 @@ LB = 120
 LF = 325
 
 
-x_data = []
-y_data = []
-z_data = []
+data = []
 
-for z in range(-430, -170, 5):
+for z in range(-400, -184, 3):
 	for p in range(0, 73):
 		phi = p*pi/36
 		r = max_r(B, F, LB, LF, z, phi, [-pi/3, pi/3])
 		if r:
 			x = r*cos(phi)
 			y = r*sin(phi)
-			x_data.append(x)
-			y_data.append(y)
-			z_data.append(z)
+			data.append((x, y, z))
 
 import numpy as np
 
-X = np.array(x_data)
-Y = np.array(y_data)
-Z = np.array(z_data)
+'''
+sorted_data = sorted(data, key = lambda x: (x[0], x[1]))
+
+X = np.array(list(map(lambda x: x[0], sorted_data)))
+Y = np.array(list(map(lambda x: x[1], sorted_data)))
+	Z = np.array(list(map(lambda x: x[2], sorted_data)))
+'''
+
+X = np.array(list(map(lambda x: x[0], data)))
+Y = np.array(list(map(lambda x: x[1], data)))
+Z = np.array(list(map(lambda x: x[2], data)))
 
 
 from mpl_toolkits.mplot3d import axes3d
 import matplotlib.pyplot as plt
+from matplotlib import cm
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
@@ -185,8 +197,9 @@ Z = np.outer(np.ones(100), Z_val)
 
 '''
 
+# X, Y = np.meshgrid(X, Y)
 
-ax.plot_wireframe(X, Y, Z,  rstride=4, cstride=4, color='b')
+ax.plot_wireframe(X, Y, Z,  rstride=4, cstride=4)
 
 plt.show()
 
