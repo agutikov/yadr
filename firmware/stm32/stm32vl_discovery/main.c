@@ -11,6 +11,8 @@
 	C8 - blue led
 	C9 - green led
 
+	C0, C1 - adc for pressure sensor
+
  */
 
 #include <string.h>
@@ -19,7 +21,9 @@
 #include <limits.h>
 #include <stdio.h>
 
+#include "stm32f10x_rcc.h"
 #include "stm32f10x_tim.h"
+#include "stm32f10x_adc.h"
 
 #include "usart.h"
 
@@ -198,6 +202,19 @@ usart_config_t usart_config =
 //		.dma_irqn = DMA1_Channel1_IRQn,
 //		.dma_channel_idx = 1
 	};
+
+usart_t* usart_1 = &usart_device;
+
+void printstr (const char* str)
+{
+	term_putstr(usart_1, str);
+}
+void printnum (int i, int base)
+{
+	char buffer[32];
+	i2str(buffer, i, base, 0);
+	printstr(buffer);
+}
 
 void usart1_isr (void)
 {
@@ -409,6 +426,89 @@ void servo_sync_pwm (void)
 	}
 }
 
+
+
+void adc_init (void)
+{
+	GPIO_InitTypeDef GPIO_InitStructure;
+
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+	// power for light sensor
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+	GPIO_WriteBit(GPIOC, GPIO_Pin_0, 1);
+
+	RCC_ADCCLKConfig(RCC_PCLK2_Div8);
+	/* Enable ADC1 clock so that we can talk to it */
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE);
+
+	/* Put everything back to power-on defaults */
+	ADC_DeInit(ADC1);
+
+	ADC_InitTypeDef  ADC_InitStructure;
+    ADC_StructInit(&ADC_InitStructure);
+	/* ADC1 and ADC2 operate independently */
+	ADC_InitStructure.ADC_Mode = ADC_Mode_Independent;
+	/* Disable the scan conversion so we do one at a time */
+	ADC_InitStructure.ADC_ScanConvMode = DISABLE;
+	/* Don't do continuous conversions - do them on demand */
+	ADC_InitStructure.ADC_ContinuousConvMode = DISABLE;
+	/* Start conversin by software, not an external trigger */
+	ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
+	/* Conversions are 12 bit - put them in the lower 12 bits of the result */
+	ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
+	/* Say how many channels would be used by the sequencer */
+	ADC_InitStructure.ADC_NbrOfChannel = 2;
+	/* Now do the setup */
+	ADC_Init(ADC1, &ADC_InitStructure);
+
+	/* Enable ADC1 */
+	ADC_Cmd(ADC1, ENABLE);
+
+	/* Enable ADC1 reset calibration register */
+	ADC_ResetCalibration(ADC1);
+	/* Check the end of ADC1 reset calibration register */
+	while (ADC_GetResetCalibrationStatus(ADC1))
+	{}
+	/* Start ADC1 calibaration */
+	ADC_StartCalibration(ADC1);
+	/* Check the end of ADC1 calibration */
+	while (ADC_GetCalibrationStatus(ADC1))
+	{}
+}
+
+uint16_t adc_get_value (uint8_t channel)
+{
+	ADC_RegularChannelConfig(ADC1, channel, 1, ADC_SampleTime_1Cycles5);
+
+	ADC_SoftwareStartConvCmd(ADC1, ENABLE);
+
+	while (ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC) == RESET)
+	{};
+
+	uint16_t value = ADC_GetConversionValue(ADC1);
+
+	return value;
+}
+
+void adc_print (void)
+{
+	//TODO: where to find mapping ADC channels onto GPIO ?
+	uint16_t adc0 = adc_get_value(10);
+	printstr("\nADC 0: ");
+	printnum(adc0, 0);
+
+	uint16_t adc1 = adc_get_value(11);
+	printstr("\nADC 1: ");
+	printnum(adc1, 0);
+
+	printstr("\n");
+}
+
+
 /*
  * TODO:
  * - manually implement int2str, byte2hex ...
@@ -547,6 +647,22 @@ int cmd_exec (int argc, const char* argv[], usart_t* term)
 		led_num(num);
 		return 0;
 	}
+	if (!strcmp(argv[0], "adc")) {
+		if (argc == 1) {
+			adc_print();
+			return 0;
+		}
+		if (!strcmp(argv[1], "cont") && argc == 4) {
+			int counter = strtol(argv[2], 0, 0);
+			int period = strtol(argv[3], 0, 0);
+			while (counter--) {
+				adc_print();
+				wait(period);
+			}
+			return 0;
+		}
+		return 1;
+	}
 #if DBG_TERM
 	if (!strcmp(argv[0], "dbg")) {
 		for (int i = 0; i < dbg_len; i++) {
@@ -608,8 +724,6 @@ void main( void )
 {
 	leds_init();
 
-	usart_t* usart_1 = &usart_device;
-
 	usart_init(usart_1, &usart_config,
 			usart_buffers[0], USART_BUFF_SIZE,
 			usart_buffers[1], USART_BUFF_SIZE);
@@ -621,6 +735,10 @@ void main( void )
 	servo_pwm_timer_init();
 
 	term_putstr(usart_1, "Servo PWM configured.\n");
+
+	adc_init();
+
+	term_putstr(usart_1, "ADC C0,C1 configured.\n");
 
 	int recv;
 
