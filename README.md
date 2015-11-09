@@ -6,12 +6,12 @@ http://hackerspace.by/projects/4
 
 Content
 -------
-
+```
 /scad/               - models for 3d printing 
 /py_experiments/     - mostly with SymPy 
 /firmware/           - firmware for Arduino UNO and STM32VL-Discovery 
 delta_mouse.py       - demo application, delta's effector follows mouse, wheel is z-axis 
-
+```
 
 
 Make STLs for 3D printing
